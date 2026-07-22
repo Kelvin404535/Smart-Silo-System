@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from app.database import get_db
 from app.utils import (is_strong_password, hash_password, verify_password,
                        check_account_lockout, record_failed_attempt,
-                       reset_failed_attempts, get_base_url, _resend_send)
+                       reset_failed_attempts, get_base_url, _brevo_send)
 from app.decorators import login_required, admin_required
 
 auth_bp = Blueprint('auth', __name__)
@@ -132,7 +132,7 @@ def forgot_password():
             conn.close()
 
             reset_link  = f'{get_base_url()}/reset-password/{token}'
-            api_key     = current_app.config.get('RESEND_API_KEY', '')
+            api_key     = current_app.config.get('BREVO_API_KEY', '')
             from_email  = current_app.config.get('MAIL_DEFAULT_SENDER', '')
 
             if api_key and from_email:
@@ -141,7 +141,7 @@ def forgot_password():
                     f'<p>Click the link below to reset your password (expires in 1 hour):</p>'
                     f'<p><a href="{reset_link}">{reset_link}</a></p>'
                 )
-                ok, err = _resend_send(
+                ok, err = _brevo_send(
                     api_key, from_email, [email],
                     'Password Reset - Smart Silo System', html)
                 if not ok:

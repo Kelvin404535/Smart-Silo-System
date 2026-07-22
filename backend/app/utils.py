@@ -1,5 +1,7 @@
 """
 Shared helpers: password validation, risk calculation, alert logic, email.
+Email is sent via Brevo (formerly Sendinblue) HTTPS API — works on Render
+free tier, no domain verification needed, sends to any recipient.
 """
 import re
 import threading
@@ -12,7 +14,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # ── Password helpers ──────────────────────────────────────────────────────────
 
 def is_strong_password(password: str):
-    """Return (True, 'Strong') or (False, reason)."""
     checks = [
         (len(password) >= 8,                        'At least 8 characters required'),
         (bool(re.search(r'[A-Z]', password)),        'Need 1 uppercase letter'),
@@ -76,7 +77,6 @@ def reset_failed_attempts(identifier: str):
 # ── Risk calculation ──────────────────────────────────────────────────────────
 
 def calculate_risk(moisture, days_stored):
-    """Return (colour, message) where colour is 'red'|'yellow'|'green'|'gray'."""
     if not moisture:
         return 'gray', 'No data entered'
     if moisture > 14 or days_stored > 90:
@@ -86,53 +86,68 @@ def calculate_risk(moisture, days_stored):
     return 'green',  f'SAFE: {moisture}% moisture, {days_stored} days'
 
 
-# ── Resend email helper ───────────────────────────────────────────────────────
+# ── Brevo email ───────────────────────────────────────────────────────────────
 
-def _resend_send(api_key: str, from_email: str, recipients: list,
-                 subject: str, html_body: str):
+def _brevo_send(api_key: str, from_email: str, recipients: list,
+                subject: str, html_body: str):
     """
-    Send an email via the official resend Python SDK.
-    Returns (True, None) on success or (False, error_str) on failure.
+    Send via Brevo transactional API (HTTPS port 443).
+    Works on Render free tier. No domain verification needed.
+    Returns (True, None) or (False, error_string).
     """
+    import requests as _req
+
+    if '<' in from_email:
+        sender_name  = from_email.split('<')[0].strip()
+        sender_email = from_email.split('<')[1].rstrip('>')
+    else:
+        sender_name  = 'Smart Silo System'
+        sender_email = from_email
+
+    payload = {
+        'sender':      {'name': sender_name, 'email': sender_email},
+        'to':          [{'email': r} for r in recipients],
+        'subject':     subject,
+        'htmlContent': html_body,
+    }
+    headers = {
+        'accept':       'application/json',
+        'content-type': 'application/json',
+        'api-key':      api_key,
+    }
     try:
-        import resend
-        resend.api_key = api_key
-        params: resend.Emails.SendParams = {
-            'from':    from_email,
-            'to':      recipients,
-            'subject': subject,
-            'html':    html_body,
-        }
-        result = resend.Emails.send(params)
-        # result is an object in SDK v2, dict in v1 — handle both
-        email_id = getattr(result, 'id', None) or (result.get('id') if isinstance(result, dict) else None)
-        print(f'✅ Resend accepted email for {recipients}, id={email_id}')
-        return True, None
+        resp = _req.post(
+            'https://api.brevo.com/v3/smtp/email',
+            json=payload, headers=headers, timeout=15,
+        )
+        if resp.status_code in (200, 201):
+            mid = resp.json().get('messageId', '')
+            print(f'✅ Brevo sent to {recipients} messageId={mid}')
+            return True, None
+        msg = f'Brevo HTTP {resp.status_code}: {resp.text}'
+        print(f'❌ {msg}')
+        return False, msg
     except Exception as exc:
-        print(f'❌ Resend error ({type(exc).__name__}): {exc}')
+        print(f'❌ Brevo error ({type(exc).__name__}): {exc}')
         return False, str(exc)
 
 
 def _dispatch_email(recipients: list, subject: str, html_body: str):
-    """
-    Fire email in a non-daemon background thread so it never blocks a request.
-    """
+    """Send in a background thread so the HTTP request returns instantly."""
     from flask import current_app
-    api_key    = current_app.config.get('RESEND_API_KEY', '')
+    api_key    = current_app.config.get('BREVO_API_KEY', '')
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
-
     if not api_key:
-        print('⚠️  RESEND_API_KEY not set — email skipped.')
+        print('⚠️  BREVO_API_KEY not set — email skipped.')
         return
     if not from_email:
         print('⚠️  MAIL_DEFAULT_SENDER not set — email skipped.')
         return
 
     def _run():
-        _resend_send(api_key, from_email, recipients, subject, html_body)
+        _brevo_send(api_key, from_email, recipients, subject, html_body)
 
-    t = threading.Thread(target=_run, daemon=False)
-    t.start()
+    threading.Thread(target=_run, daemon=False).start()
 
 
 # ── Alert HTML template ───────────────────────────────────────────────────────
@@ -158,8 +173,7 @@ def save_alert_to_db(silo_id, alert_type, severity, message):
         conn = get_db()
         existing = conn.execute(
             "SELECT id FROM alerts "
-            "WHERE silo_id = ? AND alert_type = ? AND severity = ? "
-            "AND is_read = 0 LIMIT 1",
+            "WHERE silo_id = ? AND alert_type = ? AND severity = ? AND is_read = 0 LIMIT 1",
             (silo_id, alert_type, severity),
         ).fetchone()
         if existing:
@@ -185,7 +199,6 @@ def check_and_send_alerts():
     print('🔍 Checking silos for risks...')
     try:
         conn = get_db()
-
         recipient_rows = conn.execute(
             "SELECT email FROM users WHERE email IS NOT NULL AND email != ''"
         ).fetchall()
@@ -203,19 +216,17 @@ def check_and_send_alerts():
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
 
-        mail_configured = bool(current_app.config.get('RESEND_API_KEY'))
-        if not mail_configured:
-            print('⚠️  RESEND_API_KEY not set — alerts saved to DB only.')
+        mail_ok = bool(current_app.config.get('BREVO_API_KEY'))
+        if not mail_ok:
+            print('⚠️  BREVO_API_KEY not set — alerts saved to DB only.')
 
         created = 0
         for silo in silos:
             days = 0
             if silo['entry_date']:
                 try:
-                    days = (
-                        datetime.now() -
-                        datetime.strptime(silo['entry_date'], '%Y-%m-%d')
-                    ).days
+                    days = (datetime.now() -
+                            datetime.strptime(silo['entry_date'], '%Y-%m-%d')).days
                 except Exception:
                     pass
 
@@ -227,51 +238,45 @@ def check_and_send_alerts():
 
             if moisture > 14 or days > 90:
                 if moisture > 14:
-                    msg = f'CRITICAL: Silo {silo_num} has {moisture}% moisture (limit: 14%)'
+                    msg   = f'CRITICAL: Silo {silo_num} has {moisture}% moisture (limit: 14%)'
                     saved = save_alert_to_db(silo['id'], 'high_moisture', 'critical', msg)
                     created += saved
-                    if saved and mail_configured and recipients:
-                        _dispatch_email(
-                            recipients,
+                    if saved and mail_ok and recipients:
+                        _dispatch_email(recipients,
                             f'CRITICAL: High Moisture - Silo {silo_num}',
                             _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
                 if days > 90:
-                    msg = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
+                    msg   = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
                     saved = save_alert_to_db(silo['id'], 'storage_age', 'critical', msg)
                     created += saved
-                    if saved and mail_configured and recipients:
-                        _dispatch_email(
-                            recipients,
+                    if saved and mail_ok and recipients:
+                        _dispatch_email(recipients,
                             f'CRITICAL: Long Storage - Silo {silo_num}',
                             _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
-
             elif moisture > 12.5 or days > 60:
                 if moisture > 12.5:
-                    msg = f'WARNING: Silo {silo_num} has {moisture}% moisture (limit: 12.5%)'
+                    msg   = f'WARNING: Silo {silo_num} has {moisture}% moisture (limit: 12.5%)'
                     saved = save_alert_to_db(silo['id'], 'high_moisture', 'warning', msg)
                     created += saved
-                    if saved and mail_configured and recipients:
-                        _dispatch_email(
-                            recipients,
+                    if saved and mail_ok and recipients:
+                        _dispatch_email(recipients,
                             f'WARNING: High Moisture - Silo {silo_num}',
                             _alert_html('WARNING', '#f59e0b', silo_num, msg))
                 if days > 60:
-                    msg = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
+                    msg   = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
                     saved = save_alert_to_db(silo['id'], 'storage_age', 'warning', msg)
                     created += saved
-                    if saved and mail_configured and recipients:
-                        _dispatch_email(
-                            recipients,
+                    if saved and mail_ok and recipients:
+                        _dispatch_email(recipients,
                             f'WARNING: Long Storage - Silo {silo_num}',
                             _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
             if 0 < stock and pct < 10:
-                msg = f'LOW STOCK: Silo {silo_num} has {stock}kg remaining ({pct:.1f}% capacity)'
+                msg   = f'LOW STOCK: Silo {silo_num} has {stock}kg remaining ({pct:.1f}% capacity)'
                 saved = save_alert_to_db(silo['id'], 'low_stock', 'warning', msg)
                 created += saved
-                if saved and mail_configured and recipients:
-                    _dispatch_email(
-                        recipients,
+                if saved and mail_ok and recipients:
+                    _dispatch_email(recipients,
                         f'WARNING: Low Stock - Silo {silo_num}',
                         _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
@@ -284,16 +289,13 @@ def check_and_send_alerts():
 # ── Test email ────────────────────────────────────────────────────────────────
 
 def send_test_email(recipient: str):
-    """
-    Send a test email via Resend synchronously.
-    Returns (True, None) on success or (False, error_str) on failure.
-    """
+    """Send a test email via Brevo. Returns (True, None) or (False, error)."""
     from flask import current_app
-    api_key    = current_app.config.get('RESEND_API_KEY', '')
+    api_key    = current_app.config.get('BREVO_API_KEY', '')
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
 
     if not api_key:
-        return False, 'RESEND_API_KEY is not set in Render environment variables.'
+        return False, 'BREVO_API_KEY is not set in Render environment variables.'
     if not from_email:
         return False, 'MAIL_DEFAULT_SENDER is not set in Render environment variables.'
 
@@ -310,15 +312,14 @@ def send_test_email(recipient: str):
         <hr><small>Smart Silo Management System</small>
     </div></body></html>'''
 
-    print(f'📧 Sending test email to {recipient} via Resend...')
-    return _resend_send(api_key, from_email, [recipient],
-                        'Test Alert - Smart Silo System', html)
+    print(f'📧 Sending test email to {recipient} via Brevo...')
+    return _brevo_send(api_key, from_email, [recipient],
+                       'Test Alert - Smart Silo System', html)
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────
 
 def get_base_url() -> str:
-    """Return the public base URL (works locally and on Render)."""
     try:
         host = request.host
         if host.startswith(('127.0.0.1', 'localhost')):

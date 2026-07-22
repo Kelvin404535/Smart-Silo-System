@@ -6,7 +6,7 @@ from flask import (Blueprint, render_template, redirect,
 
 from app.database import get_db
 from app.decorators import login_required, admin_required
-from app.utils import hash_password, get_base_url, _resend_send
+from app.utils import hash_password, get_base_url, _brevo_send
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -60,12 +60,12 @@ def approve_user(user_id):
     conn.close()
 
     base_url   = get_base_url()
-    api_key    = current_app.config.get('RESEND_API_KEY', '')
+    api_key    = current_app.config.get('BREVO_API_KEY', '')
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
     email_sent = False
 
     if not api_key:
-        print('⚠️  RESEND_API_KEY not set — approval email skipped.')
+        print('⚠️  BREVO_API_KEY not set — approval email skipped.')
     elif not from_email:
         print('⚠️  MAIL_DEFAULT_SENDER not set — approval email skipped.')
 
@@ -122,7 +122,7 @@ def approve_user(user_id):
           </div>
         </body></html>'''
 
-        ok, err = _resend_send(
+        ok, err = _brevo_send(
             api_key, from_email, [pending['email']],
             'Your Smart Silo Account is Approved', html)
         email_sent = ok
@@ -156,7 +156,7 @@ def reject_user(user_id):
         )
         conn.commit()
 
-        api_key    = current_app.config.get('RESEND_API_KEY', '')
+        api_key    = current_app.config.get('BREVO_API_KEY', '')
         from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
         if api_key and from_email:
             html = '''
@@ -171,7 +171,7 @@ def reject_user(user_id):
                 <small style="color:#9ca3af">Smart Silo Management System</small>
               </div>
             </body></html>'''
-            _resend_send(
+            _brevo_send(
                 api_key, from_email, [pending['email']],
                 'Smart Silo Registration Update', html)
 

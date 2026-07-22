@@ -22,11 +22,11 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = PRODUCTION
 
-    # ── Email — Resend (HTTPS, works on Render free tier) ────────────────────
-    # Set RESEND_API_KEY in Render environment vars.
-    # MAIL_DEFAULT_SENDER must be a verified sender or use onboarding@resend.dev
-    RESEND_API_KEY      = _setting('RESEND_API_KEY',      '')
-    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', 'onboarding@resend.dev')
+    # ── Email — Brevo (HTTPS, no domain verification needed, free tier) ─────────
+    # Set BREVO_API_KEY and MAIL_DEFAULT_SENDER in Render environment vars.
+    # MAIL_DEFAULT_SENDER can be any email you own (must match Brevo sender).
+    BREVO_API_KEY       = _setting('BREVO_API_KEY',       '')
+    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
 
     # ── Database ──────────────────────────────────────────────────────────────
     if os.environ.get('RENDER'):
