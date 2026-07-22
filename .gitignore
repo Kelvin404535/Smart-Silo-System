@@ -1,0 +1,89 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environment ────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Database ──────────────────────────────────────────────────────────────────
+instance/
+*.db
+*.sqlite3
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+.env.*
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.code-workspace
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Logs / archives ───────────────────────────────────────────────────────────
+*.log
+*.zip
+dist/
+build/
+*.egg-info/
+
+# ── Root junk files ───────────────────────────────────────────────────────────
+=
+code
+dashboard-fixed.html
+verification_result.html
+signup.html
+signup_success.html
+recycle_bin.html
+request.form.get
+
+# ── Old root-level files replaced by backend/ package ─────────────────────────
+app.py
+app_backup.py
+config.py
+database.py
+requirements.txt
+static/
+templates/
+
+# ── One-off diagnostic scripts ─────────────────────────────────────────────────
+add_pending.py
+approve_user.py
+approve_with_email.py
+check_admin.py
+check_admin_password.py
+check_login.py
+check_pending.py
+check_users.py
+clean_pending.py
+create_user.py
+diagnose.py
+fix_admin.py
+fix_silos.py
+reset.py
+setup_db.py
+show_tables.py
+show_users.py
+test.py
+test_email.py
+test_final.py
+test_password.py
+test_verify.py
+
+# ── Images / binary assets at root ────────────────────────────────────────────
+*.jpg
+*.jpg.jpg
+*.png
+*.zip
+*.lnk
+
+# ── Archive folder ─────────────────────────────────────────────────────────────
+archive/
