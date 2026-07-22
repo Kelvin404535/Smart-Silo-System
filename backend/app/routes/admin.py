@@ -37,23 +37,21 @@ def approve_user(user_id):
         conn.close()
         return redirect(url_for('admin.admin_pending_users'))
 
-    # Generate worker number
-    last = conn.execute(
-        "SELECT username FROM users WHERE username LIKE 'WK-%' "
-        'ORDER BY id DESC LIMIT 1'
-    ).fetchone()
-    num    = int(last['username'].split('-')[1]) + 1 if last else 1
-    worker = f'WK-{num:04d}'
+    # Use the preferred username they registered with
+    username = pending['preferred_username']
+    role     = pending['requested_role'] or 'staff'
 
+    # Generate a secure temporary password
     chars    = string.ascii_letters + string.digits + '!@#$%^&*'
     temp_pwd = ''.join(random.choice(chars) for _ in range(12))
 
+    # Create the user account with the correct role
     conn.execute(
         'INSERT INTO users (username, password, email, phone, full_name, role) '
         'VALUES (?, ?, ?, ?, ?, ?)',
-        (worker, hash_password(temp_pwd),
+        (username, hash_password(temp_pwd),
          pending['email'], pending['phone'],
-         pending['full_name'], pending['requested_role']),
+         pending['full_name'], role),
     )
     conn.execute(
         "UPDATE pending_users SET status = 'approved' WHERE id = ?", (user_id,)
@@ -67,32 +65,71 @@ def approve_user(user_id):
     email_sent = False
 
     if api_key and from_email:
+        role_label = role.capitalize()
         html = f'''
-        <div style="font-family:Arial;padding:20px;background:#f0fdf4;border-radius:10px">
-            <h2 style="color:#10b981">Welcome to Smart Silo System!</h2>
-            <p>Dear <strong>{pending['full_name']}</strong>, your account has been approved.</p>
-            <div style="background:white;padding:15px;border-radius:8px;margin:15px 0">
-                <p><strong>Worker Number:</strong> {worker}</p>
-                <p><strong>Temporary Password:</strong> <code>{temp_pwd}</code></p>
-                <p><strong>Email:</strong> {pending['email']}</p>
+        <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px;margin:0">
+          <div style="max-width:560px;margin:auto;background:#ffffff;border-radius:12px;
+                      border-top:5px solid #10b981;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+
+            <h2 style="color:#10b981;margin-top:0">Your Account is Approved!</h2>
+            <p style="color:#374151;font-size:15px">
+              Dear <strong>{pending['full_name']}</strong>,<br><br>
+              Your Smart Silo System account has been approved.
+              Use the credentials below to log in.
+            </p>
+
+            <div style="background:#f0fdf4;border:1px solid #a7f3d0;border-radius:10px;
+                        padding:20px;margin:20px 0">
+              <table style="width:100%;border-collapse:collapse;font-size:15px">
+                <tr>
+                  <td style="padding:6px 0;color:#6b7280;width:140px">Username</td>
+                  <td style="padding:6px 0;color:#111827"><strong>{username}</strong></td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;color:#6b7280">Temporary Password</td>
+                  <td style="padding:6px 0">
+                    <code style="background:#e5e7eb;padding:3px 8px;border-radius:5px;
+                                 font-size:14px;color:#111827">{temp_pwd}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0;color:#6b7280">Role</td>
+                  <td style="padding:6px 0;color:#111827">{role_label}</td>
+                </tr>
+              </table>
             </div>
-            <p style="color:#e67e22">Change your password after first login.</p>
-            <a href="{base_url}/login">Login here</a>
-        </div>'''
+
+            <p style="color:#d97706;font-size:13px;margin-bottom:20px">
+              ⚠️ Please change your password immediately after your first login.
+            </p>
+
+            <a href="{base_url}/login"
+               style="display:inline-block;background:#10b981;color:white;padding:12px 28px;
+                      text-decoration:none;border-radius:8px;font-weight:bold;font-size:15px">
+              Login to Smart Silo →
+            </a>
+
+            <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+            <p style="color:#9ca3af;font-size:12px;margin:0">
+              Smart Silo Management System — do not reply to this email.
+            </p>
+          </div>
+        </body></html>'''
+
         ok, err = _resend_send(
             api_key, from_email, [pending['email']],
-            'Account Approved - Smart Silo System', html)
+            'Your Smart Silo Account is Approved', html)
         email_sent = ok
         if not ok:
             print(f'❌ Approval email failed: {err}')
 
     if email_sent:
-        flash(f'✅ {pending["full_name"]} approved! Credentials sent to '
-              f'{pending["email"]}', 'success')
+        flash(f'✅ {pending["full_name"]} approved as {role}! '
+              f'Login credentials sent to {pending["email"]}', 'success')
     else:
-        flash(f'✅ {pending["full_name"]} approved! '
-              f'Worker: {worker}  Temp password: {temp_pwd}  '
-              '(Email not sent — share credentials manually)', 'warning')
+        flash(f'✅ {pending["full_name"]} approved as {role}. '
+              f'Username: {username} | Temp password: {temp_pwd} '
+              '(Email failed — share credentials manually)', 'warning')
 
     return redirect(url_for('admin.admin_pending_users'))
 
@@ -116,11 +153,23 @@ def reject_user(user_id):
         api_key    = current_app.config.get('RESEND_API_KEY', '')
         from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
         if api_key and from_email:
+            html = '''
+            <html><body style="font-family:Arial,sans-serif;padding:20px">
+              <div style="max-width:500px;margin:auto;background:#fff;border-radius:10px;
+                          border-top:5px solid #ef4444;padding:28px">
+                <h2 style="color:#ef4444;margin-top:0">Registration Update</h2>
+                <p>Thank you for your interest in Smart Silo System.</p>
+                <p>Unfortunately your registration request has been declined.</p>
+                <p>Please contact the system administrator for more information.</p>
+                <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                <small style="color:#9ca3af">Smart Silo Management System</small>
+              </div>
+            </body></html>'''
             _resend_send(
                 api_key, from_email, [pending['email']],
-                'Account Update - Smart Silo System',
-                '<p>Your registration has been declined. '
-                'Please contact the administrator.</p>')
+                'Smart Silo Registration Update', html)
+
+        flash(f'❌ {pending["full_name"]} has been rejected.', 'warning')
 
     conn.close()
     return redirect(url_for('admin.admin_pending_users'))
