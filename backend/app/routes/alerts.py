@@ -54,7 +54,7 @@ def send_test_alert():
     if ok:
         return redirect(url_for(
             'alerts.alert_settings',
-            message='Test email sent! Check your inbox.',
+            message=err,
         ))
     return redirect(url_for(
         'alerts.alert_settings',

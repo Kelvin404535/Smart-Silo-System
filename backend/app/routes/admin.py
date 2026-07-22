@@ -116,11 +116,11 @@ def approve_user(user_id):
 
     if email_sent:
         flash(f'✅ {pending["full_name"]} approved as {role}! '
-              f'Credentials emailed to {pending["email"]}', 'success')
+              f'Credentials email queued for {pending["email"]}.', 'success')
     else:
         flash(f'✅ {pending["full_name"]} approved as {role}. '
               f'Username: {username} | Temp password: {temp_pwd} '
-              '(Email not sent — share credentials manually)', 'warning')
+              '(Email delivery not queued — share credentials manually)', 'warning')
 
     return redirect(url_for('admin.admin_pending_users'))
 

@@ -285,7 +285,7 @@ def check_and_send_alerts():
 def send_test_email(recipient: str):
     """
     Queue a test email in a background thread.
-    Returns (True, None) immediately when the email has been queued.
+    Returns (True, queued_message) immediately when the email has been queued.
     """
     if not _mail_configured():
         return False, 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.'
@@ -306,7 +306,7 @@ def send_test_email(recipient: str):
     print(f'📧 Queuing test email to {recipient}...')
     ok = _dispatch_email('Test Alert - Smart Silo System', [recipient], html_body)
     if ok:
-        return True, None
+        return True, 'Test email queued for delivery. Check your inbox shortly.'
     return False, 'Email could not be queued.'
 
 
