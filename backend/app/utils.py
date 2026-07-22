@@ -282,27 +282,44 @@ def get_base_url() -> str:
 
 def send_test_email(mail, recipient: str):
     """
-    Send a test email synchronously so we get the real success/error result.
+    Send test email in a non-daemon thread with a 25s join so the worker
+    doesn't timeout, but the thread can finish even if the join expires.
     Returns (True, None) on success or (False, error_str) on failure.
     """
-    try:
-        print(f'📧 Sending test email to {recipient}...')
-        msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
-        msg.html = '''
-        <html><body style="font-family:Arial">
-        <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-            <h2 style="color:#10b981">&#10003; Test Alert</h2>
-            <p>Your Smart Silo alert system is working correctly!</p>
-            <ul>
-                <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
-                <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-                <li>&#128230; Low stock: less than 10% capacity</li>
-            </ul>
-            <hr><small>Smart Silo Management System</small>
-        </div></body></html>'''
-        mail.send(msg)
-        print(f'✅ Test email delivered to {recipient}')
-        return True, None
-    except Exception as exc:
-        print(f'❌ Test email error ({type(exc).__name__}): {exc}')
-        return False, str(exc)
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    result = {'ok': False, 'err': 'Email timed out — check Render logs'}
+
+    def _send():
+        try:
+            print(f'📧 Sending test email to {recipient}...')
+            with app.app_context():
+                msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
+                msg.html = '''
+                <html><body style="font-family:Arial">
+                <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+                    <h2 style="color:#10b981">&#10003; Test Alert</h2>
+                    <p>Your Smart Silo alert system is working correctly!</p>
+                    <ul>
+                        <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+                        <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+                        <li>&#128230; Low stock: less than 10% capacity</li>
+                    </ul>
+                    <hr><small>Smart Silo Management System</small>
+                </div></body></html>'''
+                mail.send(msg)
+            print(f'✅ Test email delivered to {recipient}')
+            result['ok']  = True
+            result['err'] = None
+        except Exception as exc:
+            print(f'❌ Test email error ({type(exc).__name__}): {exc}')
+            result['ok']  = False
+            result['err'] = str(exc)
+
+    # daemon=False so the thread survives even if the HTTP worker moves on
+    t = threading.Thread(target=_send, daemon=False)
+    t.start()
+    t.join(timeout=25)   # wait up to 25s (well within Gunicorn's 120s timeout)
+
+    return result['ok'], result['err']
