@@ -1,13 +1,13 @@
 """
 Shared helpers: password validation, risk calculation, alert logic, email.
-Email is sent via Brevo (formerly Sendinblue) HTTPS API — works on Render
-free tier, no domain verification needed, sends to any recipient.
+Email uses Flask-Mail with Gmail SMTP — works on PythonAnywhere free tier.
 """
 import re
 import threading
 from datetime import datetime
 
 from flask import request
+from flask_mail import Message
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -86,68 +86,42 @@ def calculate_risk(moisture, days_stored):
     return 'green',  f'SAFE: {moisture}% moisture, {days_stored} days'
 
 
-# ── Brevo email ───────────────────────────────────────────────────────────────
+# ── Email helpers ─────────────────────────────────────────────────────────────
 
-def _brevo_send(api_key: str, from_email: str, recipients: list,
-                subject: str, html_body: str):
-    """
-    Send via Brevo transactional API (HTTPS port 443).
-    Works on Render free tier. No domain verification needed.
-    Returns (True, None) or (False, error_string).
-    """
-    import requests as _req
-
-    if '<' in from_email:
-        sender_name  = from_email.split('<')[0].strip()
-        sender_email = from_email.split('<')[1].rstrip('>')
-    else:
-        sender_name  = 'Smart Silo System'
-        sender_email = from_email
-
-    payload = {
-        'sender':      {'name': sender_name, 'email': sender_email},
-        'to':          [{'email': r} for r in recipients],
-        'subject':     subject,
-        'htmlContent': html_body,
-    }
-    headers = {
-        'accept':       'application/json',
-        'content-type': 'application/json',
-        'api-key':      api_key,
-    }
-    try:
-        resp = _req.post(
-            'https://api.brevo.com/v3/smtp/email',
-            json=payload, headers=headers, timeout=15,
-        )
-        if resp.status_code in (200, 201):
-            mid = resp.json().get('messageId', '')
-            print(f'✅ Brevo sent to {recipients} messageId={mid}')
-            return True, None
-        msg = f'Brevo HTTP {resp.status_code}: {resp.text}'
-        print(f'❌ {msg}')
-        return False, msg
-    except Exception as exc:
-        print(f'❌ Brevo error ({type(exc).__name__}): {exc}')
-        return False, str(exc)
-
-
-def _dispatch_email(recipients: list, subject: str, html_body: str):
-    """Send in a background thread so the HTTP request returns instantly."""
+def _mail_configured():
+    """Return True if Gmail credentials are set in config."""
     from flask import current_app
-    api_key    = current_app.config.get('BREVO_API_KEY', '')
-    from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
-    if not api_key:
-        print('⚠️  BREVO_API_KEY not set — email skipped.')
-        return
-    if not from_email:
-        print('⚠️  MAIL_DEFAULT_SENDER not set — email skipped.')
+    return bool(
+        current_app.config.get('MAIL_USERNAME') and
+        current_app.config.get('MAIL_PASSWORD')
+    )
+
+
+def _send_async(app, mail, msg):
+    """Send a Flask-Mail message in a background thread."""
+    with app.app_context():
+        try:
+            mail.send(msg)
+            print(f'✅ Email sent to {msg.recipients}')
+        except Exception as exc:
+            print(f'❌ Email error ({type(exc).__name__}): {exc}')
+
+
+def _dispatch_email(subject: str, recipients: list, html_body: str):
+    """Build and send an email in a background thread."""
+    from flask import current_app
+    from app import mail as _mail
+
+    if not _mail_configured():
+        print('⚠️  Mail not configured — email skipped.')
         return
 
-    def _run():
-        _brevo_send(api_key, from_email, recipients, subject, html_body)
-
-    threading.Thread(target=_run, daemon=False).start()
+    app = current_app._get_current_object()
+    msg = Message(subject, recipients=recipients)
+    msg.html = html_body
+    threading.Thread(
+        target=_send_async, args=(app, _mail, msg), daemon=False
+    ).start()
 
 
 # ── Alert HTML template ───────────────────────────────────────────────────────
@@ -198,7 +172,11 @@ def check_and_send_alerts():
 
     print('🔍 Checking silos for risks...')
     try:
-        conn = get_db()
+        conn       = get_db()
+        mail_ok    = _mail_configured()
+        if not mail_ok:
+            print('⚠️  Mail not configured — alerts saved to DB only.')
+
         recipient_rows = conn.execute(
             "SELECT email FROM users WHERE email IS NOT NULL AND email != ''"
         ).fetchall()
@@ -215,10 +193,6 @@ def check_and_send_alerts():
                    ) AS entry_date
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
-
-        mail_ok = bool(current_app.config.get('BREVO_API_KEY'))
-        if not mail_ok:
-            print('⚠️  BREVO_API_KEY not set — alerts saved to DB only.')
 
         created = 0
         for silo in silos:
@@ -242,16 +216,18 @@ def check_and_send_alerts():
                     saved = save_alert_to_db(silo['id'], 'high_moisture', 'critical', msg)
                     created += saved
                     if saved and mail_ok and recipients:
-                        _dispatch_email(recipients,
+                        _dispatch_email(
                             f'CRITICAL: High Moisture - Silo {silo_num}',
+                            recipients,
                             _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
                 if days > 90:
                     msg   = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
                     saved = save_alert_to_db(silo['id'], 'storage_age', 'critical', msg)
                     created += saved
                     if saved and mail_ok and recipients:
-                        _dispatch_email(recipients,
+                        _dispatch_email(
                             f'CRITICAL: Long Storage - Silo {silo_num}',
+                            recipients,
                             _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
             elif moisture > 12.5 or days > 60:
                 if moisture > 12.5:
@@ -259,16 +235,18 @@ def check_and_send_alerts():
                     saved = save_alert_to_db(silo['id'], 'high_moisture', 'warning', msg)
                     created += saved
                     if saved and mail_ok and recipients:
-                        _dispatch_email(recipients,
+                        _dispatch_email(
                             f'WARNING: High Moisture - Silo {silo_num}',
+                            recipients,
                             _alert_html('WARNING', '#f59e0b', silo_num, msg))
                 if days > 60:
                     msg   = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
                     saved = save_alert_to_db(silo['id'], 'storage_age', 'warning', msg)
                     created += saved
                     if saved and mail_ok and recipients:
-                        _dispatch_email(recipients,
+                        _dispatch_email(
                             f'WARNING: Long Storage - Silo {silo_num}',
+                            recipients,
                             _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
             if 0 < stock and pct < 10:
@@ -276,8 +254,9 @@ def check_and_send_alerts():
                 saved = save_alert_to_db(silo['id'], 'low_stock', 'warning', msg)
                 created += saved
                 if saved and mail_ok and recipients:
-                    _dispatch_email(recipients,
+                    _dispatch_email(
                         f'WARNING: Low Stock - Silo {silo_num}',
+                        recipients,
                         _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
         conn.close()
@@ -289,32 +268,37 @@ def check_and_send_alerts():
 # ── Test email ────────────────────────────────────────────────────────────────
 
 def send_test_email(recipient: str):
-    """Send a test email via Brevo. Returns (True, None) or (False, error)."""
+    """
+    Send a test email synchronously.
+    Returns (True, None) on success or (False, error_str) on failure.
+    """
     from flask import current_app
-    api_key    = current_app.config.get('BREVO_API_KEY', '')
-    from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
+    from app import mail as _mail
 
-    if not api_key:
-        return False, 'BREVO_API_KEY is not set in Render environment variables.'
-    if not from_email:
-        return False, 'MAIL_DEFAULT_SENDER is not set in Render environment variables.'
+    if not _mail_configured():
+        return False, 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.'
 
-    html = '''
-    <html><body style="font-family:Arial">
-    <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-        <h2 style="color:#10b981">&#10003; Test Alert</h2>
-        <p>Your Smart Silo alert system is working correctly!</p>
-        <ul>
-            <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
-            <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-            <li>&#128230; Low stock: less than 10% capacity</li>
-        </ul>
-        <hr><small>Smart Silo Management System</small>
-    </div></body></html>'''
-
-    print(f'📧 Sending test email to {recipient} via Brevo...')
-    return _brevo_send(api_key, from_email, [recipient],
-                       'Test Alert - Smart Silo System', html)
+    try:
+        msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
+        msg.html = '''
+        <html><body style="font-family:Arial">
+        <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+            <h2 style="color:#10b981">&#10003; Test Alert</h2>
+            <p>Your Smart Silo alert system is working correctly!</p>
+            <ul>
+                <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+                <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+                <li>&#128230; Low stock: less than 10% capacity</li>
+            </ul>
+            <hr><small>Smart Silo Management System</small>
+        </div></body></html>'''
+        print(f'📧 Sending test email to {recipient}...')
+        _mail.send(msg)
+        print(f'✅ Test email delivered to {recipient}')
+        return True, None
+    except Exception as exc:
+        print(f'❌ Test email error ({type(exc).__name__}): {exc}')
+        return False, str(exc)
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────

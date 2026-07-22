@@ -11,31 +11,31 @@ def _setting(name, default=None, required=False):
 
 class Config:
     # ── Security ──────────────────────────────────────────────────────────────
-    PRODUCTION = bool(os.environ.get('RENDER'))
-    SECRET_KEY = _setting(
-        'SECRET_KEY',
-        None if PRODUCTION else 'local_dev_secret_change_me',
-        required=PRODUCTION,
-    )
+    SECRET_KEY = _setting('SECRET_KEY', 'local_dev_secret_change_me')
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SECURE = PRODUCTION
+    SESSION_COOKIE_SECURE   = False   # set True if behind HTTPS proxy
 
-    # ── Email — Brevo (HTTPS, no domain verification needed, free tier) ─────────
-    # Set BREVO_API_KEY and MAIL_DEFAULT_SENDER in Render environment vars.
-    # MAIL_DEFAULT_SENDER can be any email you own (must match Brevo sender).
-    BREVO_API_KEY       = _setting('BREVO_API_KEY',       '')
+    # ── Email — Gmail SMTP (works on PythonAnywhere free tier) ───────────────
+    # Set these as environment variables in PythonAnywhere or a .env file.
+    MAIL_SERVER         = _setting('MAIL_SERVER',  'smtp.gmail.com')
+    MAIL_PORT           = int(_setting('MAIL_PORT', '587'))
+    MAIL_USE_TLS        = True
+    MAIL_USE_SSL        = False
+    MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')   # your Gmail address
+    MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')   # Gmail App Password
     MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
 
     # ── Database ──────────────────────────────────────────────────────────────
-    if os.environ.get('RENDER'):
-        DB_PATH = os.environ.get('DB_PATH', '/var/data/silo_management.db')
-    else:
-        DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)),
-                               'instance', 'silo_management.db')
+    # PythonAnywhere: set DB_PATH env var to an absolute path under /home/<user>/
+    DB_PATH = _setting(
+        'DB_PATH',
+        os.path.join(os.path.dirname(os.path.dirname(__file__)),
+                     'instance', 'silo_management.db'),
+    )
 
     # ── Default admin (used only when seeding an empty DB) ────────────────────
-    ADMIN_EMAIL    = _setting('ADMIN_EMAIL',    'admin@localhost.invalid', required=PRODUCTION)
-    ADMIN_PASSWORD = _setting('ADMIN_PASSWORD', 'change-me-local',        required=PRODUCTION)
+    ADMIN_EMAIL    = _setting('ADMIN_EMAIL',    'admin@example.com')
+    ADMIN_PASSWORD = _setting('ADMIN_PASSWORD', 'ChangeMe123!')
     ADMIN_USERNAME = _setting('ADMIN_USERNAME', 'admin')

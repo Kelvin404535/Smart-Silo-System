@@ -1,7 +1,10 @@
 import os
 from flask import Flask, jsonify, session
+from flask_mail import Mail
 
 from app.config import Config
+
+mail = Mail()
 
 
 def create_app():
@@ -22,6 +25,9 @@ def create_app():
     def health():
         return jsonify(status='ok')
 
+    # Initialise extensions
+    mail.init_app(app)
+
     # Register all blueprints
     from app.routes.auth         import auth_bp
     from app.routes.dashboard    import dashboard_bp
@@ -39,7 +45,6 @@ def create_app():
                admin_bp, recycle_bin_bp):
         app.register_blueprint(bp)
 
-    # Verification / static file routes
     from flask import send_file as _send_file
 
     @app.route('/google8d9f89a8b245fc66.html')
@@ -54,7 +59,6 @@ def create_app():
             os.path.join(base_dir, 'frontend', 'templates', 'sitemap.xml')
         )
 
-    # Context processor: inject pending_count into every template
     @app.context_processor
     def inject_pending_count():
         if 'user_id' in session and session.get('role') == 'admin':
@@ -67,7 +71,6 @@ def create_app():
             return {'pending_count': count['c'] if count else 0}
         return {'pending_count': 0}
 
-    # Initialise DB on first run
     from app.database import init_db
     with app.app_context():
         init_db()
