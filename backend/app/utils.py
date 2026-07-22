@@ -134,7 +134,7 @@ def _dispatch_email(subject: str, recipients: list, html_body: str):
     )
     msg.html = html_body
     threading.Thread(
-        target=_send_async, args=(app, _mail, msg), daemon=True
+        target=_send_async, args=(app, _mail, msg), daemon=False
     ).start()
     return True
 
