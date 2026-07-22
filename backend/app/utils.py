@@ -91,39 +91,21 @@ def calculate_risk(moisture, days_stored):
 def _resend_send(api_key: str, from_email: str, recipients: list,
                  subject: str, html_body: str):
     """
-    Send an email via Resend HTTP API (https://resend.com).
+    Send an email via the official resend Python SDK.
     Returns (True, None) on success or (False, error_str) on failure.
-    Uses only stdlib urllib — no extra package needed at call time.
     """
-    import json
-    import urllib.request
-    import urllib.error
-
-    payload = {
-        'from':    from_email,
-        'to':      recipients,
-        'subject': subject,
-        'html':    html_body,
-    }
-    data = json.dumps(payload).encode('utf-8')
-    req  = urllib.request.Request(
-        'https://api.resend.com/emails',
-        data    = data,
-        headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type':  'application/json',
-        },
-        method  = 'POST',
-    )
     try:
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f'✅ Resend accepted email for {recipients} (HTTP {resp.status})')
-            return True, None
-    except urllib.error.HTTPError as exc:
-        body = exc.read().decode('utf-8', errors='replace')
-        msg  = f'Resend HTTP {exc.code}: {body}'
-        print(f'❌ {msg}')
-        return False, msg
+        import resend
+        resend.api_key = api_key
+        params = {
+            'from':    from_email,
+            'to':      recipients,
+            'subject': subject,
+            'html':    html_body,
+        }
+        result = resend.Emails.send(params)
+        print(f'✅ Resend accepted email for {recipients}, id={result.get("id")}')
+        return True, None
     except Exception as exc:
         print(f'❌ Resend error ({type(exc).__name__}): {exc}')
         return False, str(exc)
