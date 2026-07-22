@@ -2,18 +2,8 @@ import os
 from datetime import timedelta
 
 
-def _setting(name, default=None, required=False):
-    value = os.environ.get(name, default)
-    if required and not value:
-        raise RuntimeError(f'{name} must be set in production')
-    return value
-
-
-def _bool_setting(name, default=False):
-    raw = os.environ.get(name)
-    if raw is None:
-        return default
-    return str(raw).strip().lower() in {'1', 'true', 'yes', 'on'}
+def _setting(name, default=None):
+    return os.environ.get(name, default)
 
 
 class Config:
@@ -22,30 +12,27 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SECURE   = False   # set True if behind HTTPS proxy
+    SESSION_COOKIE_SECURE   = bool(_setting('RAILWAY_ENVIRONMENT'))
 
-    # ── Email — Gmail SMTP (works on PythonAnywhere free tier) ───────────────
-    # Set these as environment variables in PythonAnywhere or a .env file.
+    # ── Email — Gmail SMTP (works on Railway) ─────────────────────────────────
     MAIL_SERVER         = _setting('MAIL_SERVER',  'smtp.gmail.com')
     MAIL_PORT           = int(_setting('MAIL_PORT', '587'))
-    MAIL_USE_TLS        = _bool_setting('MAIL_USE_TLS', True)
-    MAIL_USE_SSL        = _bool_setting('MAIL_USE_SSL', False)
-    MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')   # your Gmail address
-    MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')   # Gmail App Password
-    MAIL_DEFAULT_SENDER = _setting(
-        'MAIL_DEFAULT_SENDER',
-        _setting('MAIL_USERNAME', ''),
-    )
+    MAIL_USE_TLS        = True
+    MAIL_USE_SSL        = False
+    MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')
+    MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')
+    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # PythonAnywhere: set DB_PATH env var to an absolute path under /home/<user>/
+    # Railway: set DB_PATH to /app/data/silo_management.db and mount a volume
+    # at /app/data so the SQLite file persists across deploys.
     DB_PATH = _setting(
         'DB_PATH',
         os.path.join(os.path.dirname(os.path.dirname(__file__)),
                      'instance', 'silo_management.db'),
     )
 
-    # ── Default admin (used only when seeding an empty DB) ────────────────────
+    # ── Default admin ─────────────────────────────────────────────────────────
     ADMIN_EMAIL    = _setting('ADMIN_EMAIL',    'admin@example.com')
     ADMIN_PASSWORD = _setting('ADMIN_PASSWORD', 'ChangeMe123!')
     ADMIN_USERNAME = _setting('ADMIN_USERNAME', 'admin')
