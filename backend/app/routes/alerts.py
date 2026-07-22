@@ -61,6 +61,7 @@ def send_test_alert():
         ))
 
     # Fires in background thread — returns immediately, no timeout
+    print(f'📧 Test email queued for {user["email"]}')
     send_test_email(mail, user['email'])
     return redirect(url_for(
         'alerts.alert_settings',

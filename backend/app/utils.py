@@ -119,12 +119,17 @@ def _send_email_in_thread(app, mail, recipients, subject, html_body):
     """Run inside a background thread — needs its own app context."""
     try:
         with app.app_context():
+            server   = app.config.get('MAIL_SERVER')
+            port     = app.config.get('MAIL_PORT')
+            username = app.config.get('MAIL_USERNAME')
+            sender   = app.config.get('MAIL_DEFAULT_SENDER')
+            print(f'📧 Attempting email: server={server}:{port} from={sender} to={recipients}')
             msg = Message(subject, recipients=recipients)
             msg.html = html_body
             mail.send(msg)
-            print(f'✅ Email sent to {recipients}')
+            print(f'✅ Email delivered to {recipients}')
     except Exception as exc:
-        print(f'❌ Email thread error: {exc}')
+        print(f'❌ Email thread error ({type(exc).__name__}): {exc}')
 
 
 def _dispatch_email(recipients, subject, html_body):
