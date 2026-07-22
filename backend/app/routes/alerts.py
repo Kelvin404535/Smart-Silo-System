@@ -41,6 +41,16 @@ def alert_settings():
 @login_required
 def send_test_alert():
     from app import mail
+    from flask import current_app
+
+    # Surface missing config immediately so it shows on screen
+    missing = [k for k in ('MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER')
+               if not current_app.config.get(k)]
+    if missing:
+        return redirect(url_for(
+            'alerts.alert_settings',
+            error=f"Email not configured on server. Missing: {', '.join(missing)}",
+        ))
 
     conn = get_db()
     user = conn.execute(
@@ -48,17 +58,19 @@ def send_test_alert():
     ).fetchone()
     conn.close()
 
-    if user and user['email']:
-        if send_test_email(mail, user['email']):
-            return redirect(url_for(
-                'alerts.alert_settings',
-                message='Test email sent successfully! Check your inbox.',
-            ))
+    if not user or not user['email']:
         return redirect(url_for(
             'alerts.alert_settings',
-            error='Failed to send email. Check console for errors.',
+            error='No email configured. Add your email in settings first.',
+        ))
+
+    ok, err_msg = send_test_email(mail, user['email'])
+    if ok:
+        return redirect(url_for(
+            'alerts.alert_settings',
+            message='Test email sent successfully! Check your inbox.',
         ))
     return redirect(url_for(
         'alerts.alert_settings',
-        error='No email configured. Add your email in settings.',
+        error=f'Failed to send email: {err_msg}',
     ))

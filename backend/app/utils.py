@@ -266,7 +266,8 @@ def get_base_url() -> str:
         return 'http://localhost:5000'
 
 
-def send_test_email(mail, recipient: str) -> bool:
+def send_test_email(mail, recipient: str):
+    """Send a test email. Returns (True, None) on success or (False, error_str) on failure."""
     try:
         msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
         msg.html = '''
@@ -282,7 +283,7 @@ def send_test_email(mail, recipient: str) -> bool:
             <hr><small>Smart Silo Management System</small>
         </div></body></html>'''
         mail.send(msg)
-        return True
+        return True, None
     except Exception as exc:
         print(f'Email error: {exc}')
-        return False
+        return False, str(exc)
