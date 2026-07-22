@@ -282,29 +282,27 @@ def get_base_url() -> str:
 
 def send_test_email(mail, recipient: str):
     """
-    Fire a test email in a background thread.
-    Returns immediately with (True, None) — actual delivery errors appear in logs.
+    Send a test email synchronously so we get the real success/error result.
+    Returns (True, None) on success or (False, error_str) on failure.
     """
-    from flask import current_app
-    app = current_app._get_current_object()
-
-    html = '''
-    <html><body style="font-family:Arial">
-    <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-        <h2 style="color:#10b981">&#10003; Test Alert</h2>
-        <p>Your Smart Silo alert system is working correctly!</p>
-        <ul>
-            <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
-            <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-            <li>&#128230; Low stock: less than 10% capacity</li>
-        </ul>
-        <hr><small>Smart Silo Management System</small>
-    </div></body></html>'''
-
-    t = threading.Thread(
-        target=_send_email_in_thread,
-        args=(app, mail, [recipient], 'Test Alert - Smart Silo System', html),
-        daemon=True,
-    )
-    t.start()
-    return True, None
+    try:
+        print(f'📧 Sending test email to {recipient}...')
+        msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
+        msg.html = '''
+        <html><body style="font-family:Arial">
+        <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+            <h2 style="color:#10b981">&#10003; Test Alert</h2>
+            <p>Your Smart Silo alert system is working correctly!</p>
+            <ul>
+                <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+                <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+                <li>&#128230; Low stock: less than 10% capacity</li>
+            </ul>
+            <hr><small>Smart Silo Management System</small>
+        </div></body></html>'''
+        mail.send(msg)
+        print(f'✅ Test email delivered to {recipient}')
+        return True, None
+    except Exception as exc:
+        print(f'❌ Test email error ({type(exc).__name__}): {exc}')
+        return False, str(exc)

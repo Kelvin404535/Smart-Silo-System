@@ -60,10 +60,15 @@ def send_test_alert():
             error='No email saved. Enter your email above and click Save Settings first.',
         ))
 
-    # Fires in background thread — returns immediately, no timeout
+    # Send directly (synchronous) — fast enough for a single email, no thread needed
     print(f'📧 Test email queued for {user["email"]}')
-    send_test_email(mail, user['email'])
+    ok, err = send_test_email(mail, user['email'])
+    if ok:
+        return redirect(url_for(
+            'alerts.alert_settings',
+            message='Test email sent! Check your inbox.',
+        ))
     return redirect(url_for(
         'alerts.alert_settings',
-        message='Test email sent! Check your inbox in a few seconds.',
+        error=f'Failed to send email: {err}',
     ))
