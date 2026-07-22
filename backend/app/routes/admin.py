@@ -64,7 +64,13 @@ def approve_user(user_id):
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
     email_sent = False
 
+    if not api_key:
+        print('⚠️  RESEND_API_KEY not set — approval email skipped.')
+    elif not from_email:
+        print('⚠️  MAIL_DEFAULT_SENDER not set — approval email skipped.')
+
     if api_key and from_email:
+        print(f'📧 Sending approval email to {pending["email"]} (api_key set: {bool(api_key)}, from: {from_email})...')
         role_label = role.capitalize()
         html = f'''
         <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px;margin:0">

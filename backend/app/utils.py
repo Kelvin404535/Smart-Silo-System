@@ -97,14 +97,16 @@ def _resend_send(api_key: str, from_email: str, recipients: list,
     try:
         import resend
         resend.api_key = api_key
-        params = {
+        params: resend.Emails.SendParams = {
             'from':    from_email,
             'to':      recipients,
             'subject': subject,
             'html':    html_body,
         }
         result = resend.Emails.send(params)
-        print(f'✅ Resend accepted email for {recipients}, id={result.get("id")}')
+        # result is an object in SDK v2, dict in v1 — handle both
+        email_id = getattr(result, 'id', None) or (result.get('id') if isinstance(result, dict) else None)
+        print(f'✅ Resend accepted email for {recipients}, id={email_id}')
         return True, None
     except Exception as exc:
         print(f'❌ Resend error ({type(exc).__name__}): {exc}')
