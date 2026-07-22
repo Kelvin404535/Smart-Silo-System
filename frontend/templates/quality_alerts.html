@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quality & Alerts - Smart Silo System</title>
+    <style>
+        :root { --ink: #172033; --muted: #64748b; --paper: #f5f7f2; --line: #dbe3d8; --green: #237a57; --amber: #a45d14; --red: #b42318; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); background: var(--paper); font: 15px 'Segoe UI', sans-serif; }
+        header { background: #172033; color: white; padding: 18px 5%; display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+        header strong { font-size: 20px; }
+        nav { display: flex; gap: 14px; flex-wrap: wrap; }
+        nav a { color: #dcebdc; text-decoration: none; }
+        nav a:hover { color: white; text-decoration: underline; }
+        main { max-width: 1180px; margin: 34px auto; padding: 0 20px; }
+        h1 { margin: 0 0 8px; font-size: 30px; }
+        .intro { color: var(--muted); margin: 0 0 26px; }
+        .layout { display: grid; grid-template-columns: 1.5fr 1fr; gap: 18px; }
+        .card { background: white; border: 1px solid var(--line); border-radius: 8px; padding: 22px; box-shadow: 0 4px 16px rgba(23,32,51,.05); }
+        h2 { margin: 0 0 18px; font-size: 19px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 11px 8px; border-bottom: 1px solid #edf1eb; }
+        th { color: var(--muted); font-size: 12px; text-transform: uppercase; }
+        .status { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .normal { color: var(--green); background: #e2f3e9; }
+        .warning { color: var(--amber); background: #fff1d9; }
+        .critical { color: var(--red); background: #fde4e2; }
+        .no-reading { color: var(--muted); background: #edf1f4; }
+        .alert { padding: 14px 0; border-bottom: 1px solid #edf1eb; }
+        .alert:last-child { border-bottom: 0; }
+        .alert strong { display: block; margin-bottom: 5px; }
+        .alert small { color: var(--muted); }
+        .empty { color: var(--muted); text-align: center; padding: 22px 0; }
+        @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<header><strong>Quality & Alerts</strong><nav><a href="/dashboard">Dashboard</a><a href="/inventory-flow">Inventory Flow</a><a href="/analytics">Analytics</a><a href="/reports">Reports</a></nav></header>
+<main>
+    <h1>Quality and Alerts Dashboard</h1>
+    <p class="intro">Review the latest moisture reading for each active silo and follow up on unread alerts.</p>
+    <section class="layout">
+        <div class="card"><h2>Latest silo quality</h2>{% if silos %}<table><thead><tr><th>Silo</th><th>Grain</th><th>Moisture</th><th>Status</th></tr></thead><tbody>{% for silo in silos %}<tr><td>{{ silo.silo_number }}<br><small>{{ silo.location or '-' }}</small></td><td>{{ silo.grain_type or 'Unspecified' }}</td><td>{{ '%.1f'|format(silo.moisture) if silo.moisture is not none else '-' }}{% if silo.moisture is not none %}%{% endif %}</td><td><span class="status {{ silo.status|lower|replace(' ', '-') }}">{{ silo.status }}</span></td></tr>{% endfor %}</tbody></table>{% else %}<p class="empty">No active silos have been added yet.</p>{% endif %}</div>
+        <div class="card"><h2>Unread alerts</h2>{% if alerts %}{% for alert in alerts %}<div class="alert"><strong>{{ alert.silo_number or 'System alert' }}</strong><div>{{ alert.message }}</div><small>{{ alert.severity|title }} | {{ alert.created_at }}</small></div>{% endfor %}{% else %}<p class="empty">There are no unread alerts.</p>{% endif %}</div>
+    </section>
+</main>
+</body>
+</html>

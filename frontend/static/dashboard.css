@@ -1,0 +1,412 @@
+/* =========================
+   SMART SILO DASHBOARD
+   ========================= */
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body{
+    background:#f4f7fc;
+    color:#333;
+}
+
+/* =========================
+   NAVBAR
+   ========================= */
+
+.navbar{
+    background:#0f172a;
+    color:white;
+    padding:15px 30px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-brand{
+    font-size:22px;
+    font-weight:bold;
+}
+
+.nav-links{
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+    align-items:center;
+}
+
+.nav-links a{
+    text-decoration:none;
+    color:white;
+    padding:8px 14px;
+    border-radius:6px;
+    transition:0.3s;
+}
+
+.nav-links a:hover{
+    background:#2563eb;
+}
+
+.logout-btn{
+    background:#dc2626;
+}
+
+/* =========================
+   MAIN CONTAINER
+   ========================= */
+
+.container{
+    max-width:1400px;
+    margin:auto;
+    padding:25px;
+}
+
+.page-title{
+    font-size:28px;
+    font-weight:700;
+    margin-bottom:25px;
+    color:#1e293b;
+}
+
+/* =========================
+   SUMMARY CARDS
+   ========================= */
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+    gap:20px;
+    margin-bottom:25px;
+}
+
+.stat{
+    background:white;
+    border-radius:14px;
+    padding:25px;
+    box-shadow:0 3px 15px rgba(0,0,0,0.08);
+    transition:.3s;
+}
+
+.stat:hover{
+    transform:translateY(-4px);
+}
+
+.stat-title{
+    font-size:14px;
+    color:#64748b;
+    margin-bottom:10px;
+}
+
+.stat-value{
+    font-size:32px;
+    font-weight:700;
+}
+
+.stat.red{
+    border-left:5px solid #ef4444;
+}
+
+.stat.yellow{
+    border-left:5px solid #f59e0b;
+}
+
+.stat.green{
+    border-left:5px solid #10b981;
+}
+
+.stat.blue{
+    border-left:5px solid #2563eb;
+}
+
+/* =========================
+   QUICK ACTIONS
+   ========================= */
+
+.actions{
+    margin-bottom:25px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+}
+
+.btn{
+    border:none;
+    cursor:pointer;
+    padding:10px 18px;
+    border-radius:8px;
+    color:white;
+    text-decoration:none;
+    font-size:14px;
+    transition:0.3s;
+}
+
+.btn:hover{
+    opacity:.9;
+}
+
+.btn-primary{
+    background:#2563eb;
+}
+
+.btn-success{
+    background:#16a34a;
+}
+
+.btn-danger{
+    background:#dc2626;
+}
+
+.btn-warning{
+    background:#f59e0b;
+}
+
+.btn-secondary{
+    background:#64748b;
+}
+
+/* =========================
+   ALERTS
+   ========================= */
+
+.alert-panel{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    margin-bottom:25px;
+    box-shadow:0 3px 15px rgba(0,0,0,0.08);
+}
+
+.alert-panel h3{
+    margin-bottom:15px;
+}
+
+.alert-item{
+    padding:12px;
+    border-radius:8px;
+    margin-bottom:10px;
+    font-weight:600;
+}
+
+.alert-critical{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.alert-warning{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+/* =========================
+   CHART SECTION
+   ========================= */
+
+.analytics{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-bottom:30px;
+}
+
+.chart-card{
+    background:white;
+    padding:20px;
+    border-radius:14px;
+    box-shadow:0 3px 15px rgba(0,0,0,0.08);
+}
+
+.chart-card h3{
+    margin-bottom:15px;
+}
+
+/* =========================
+   SILO GRID
+   ========================= */
+
+.silo-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+    gap:20px;
+}
+
+.silo-card{
+    background:white;
+    border-radius:14px;
+    padding:20px;
+    box-shadow:0 3px 15px rgba(0,0,0,0.08);
+    transition:.3s;
+}
+
+.silo-card:hover{
+    transform:translateY(-5px);
+}
+
+.silo-card.red{
+    border-left:6px solid #ef4444;
+}
+
+.silo-card.yellow{
+    border-left:6px solid #f59e0b;
+}
+
+.silo-card.green{
+    border-left:6px solid #10b981;
+}
+
+.silo-card.gray{
+    border-left:6px solid #94a3b8;
+}
+
+.silo-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.silo-header h3{
+    color:#0f172a;
+}
+
+.location{
+    color:#64748b;
+    font-size:13px;
+}
+
+.risk-message{
+    padding:10px;
+    border-radius:8px;
+    margin-bottom:12px;
+    font-size:14px;
+    font-weight:600;
+}
+
+.red .risk-message{
+    background:#fee2e2;
+    color:#b91c1c;
+}
+
+.yellow .risk-message{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.green .risk-message{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.gray .risk-message{
+    background:#e2e8f0;
+    color:#475569;
+}
+
+/* =========================
+   DETAILS
+   ========================= */
+
+.silo-details{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:15px;
+}
+
+.silo-details span{
+    background:#f1f5f9;
+    padding:6px 10px;
+    border-radius:6px;
+    font-size:13px;
+}
+
+.stock-bar{
+    height:10px;
+    background:#e2e8f0;
+    border-radius:20px;
+    overflow:hidden;
+    margin:10px 0;
+}
+
+.stock-fill{
+    background:#2563eb;
+    height:100%;
+}
+
+/* =========================
+   CARD BUTTONS
+   ========================= */
+
+.card-actions{
+    margin-top:15px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+/* =========================
+   MODALS
+   ========================= */
+
+.modal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.5);
+    z-index:1000;
+}
+
+.modal-content{
+    background:white;
+    width:450px;
+    max-width:95%;
+    margin:80px auto;
+    padding:25px;
+    border-radius:12px;
+}
+
+.modal-content h2{
+    margin-bottom:15px;
+}
+
+.modal-content input,
+.modal-content select,
+.modal-content textarea{
+    width:100%;
+    padding:12px;
+    margin-bottom:12px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+}
+
+/* =========================
+   RESPONSIVE
+   ========================= */
+
+@media(max-width:992px){
+
+    .analytics{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:768px){
+
+    .navbar{
+        flex-direction:column;
+        gap:15px;
+    }
+
+    .stats{
+        grid-template-columns:1fr;
+    }
+
+    .silo-grid{
+        grid-template-columns:1fr;
+    }
+}

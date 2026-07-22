@@ -50,9 +50,9 @@ app.py
 app_backup.py
 config.py
 database.py
-requirements.txt
-static/
-templates/
+/requirements.txt
+/static/
+/templates/
 
 # ── One-off diagnostic scripts ─────────────────────────────────────────────────
 add_pending.py

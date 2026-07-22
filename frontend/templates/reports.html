@@ -1,0 +1,274 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Reports - Smart Silo System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        :root {
+            --bg-opacity: 0.55;
+            --glass-opacity: 0.2;
+            --blur-amount: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        body.light {
+            --bg-opacity: 0.3;
+            --glass-opacity: 0.75;
+            color: #1e293b;
+        }
+        
+        body { 
+            background-image: url('https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=1600');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, var(--bg-opacity));
+            z-index: -1;
+        }
+        
+        body.light::before {
+            background: rgba(255, 255, 255, 0.7);
+        }
+        
+        .theme-toggle {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            border-radius: 30px;
+            padding: 5px 12px;
+            cursor: pointer;
+            color: white;
+            font-size: 14px;
+            backdrop-filter: blur(8px);
+            transition: var(--transition);
+        }
+        
+        .theme-toggle:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.05);
+        }
+        
+        body.light .theme-toggle {
+            background: rgba(0,0,0,0.1);
+            color: #1e293b;
+        }
+        
+        .navbar { 
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            color: white; 
+            padding: 15px 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        body.light .navbar {
+            background: rgba(255, 255, 255, 0.8);
+            color: #1e293b;
+        }
+        
+        .nav-brand { font-size: 22px; font-weight: bold; }
+        
+        .back-btn {
+            background: rgba(37, 99, 235, 0.85);
+            backdrop-filter: blur(8px);
+            padding: 8px 20px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-btn:hover {
+            background: rgba(37, 99, 235, 1);
+            transform: translateY(-2px);
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+        
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        body.light .page-title {
+            color: #1e293b;
+            text-shadow: none;
+        }
+        
+        /* Polymorphic Glass Cards */
+        .card {
+            background: rgba(255, 255, 255, var(--glass-opacity));
+            backdrop-filter: blur(var(--blur-amount));
+            border-radius: 24px;
+            padding: 30px;
+            margin-bottom: 25px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.25);
+            transition: var(--transition);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, calc(var(--glass-opacity) + 0.05));
+        }
+        
+        .card h2 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        body.light .card h2 {
+            color: #1e293b;
+        }
+        
+        .card p {
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 25px;
+        }
+        
+        body.light .card p {
+            color: #475569;
+        }
+        
+        /* Polymorphic Button Variants */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+            backdrop-filter: blur(8px);
+        }
+        
+        .btn-pdf {
+            background: rgba(239, 68, 68, 0.85);
+            color: white;
+        }
+        
+        .btn-pdf:hover {
+            background: rgba(239, 68, 68, 1);
+            transform: translateY(-2px);
+        }
+        
+        .btn-csv {
+            background: rgba(16, 185, 129, 0.85);
+            color: white;
+        }
+        
+        .btn-csv:hover {
+            background: rgba(16, 185, 129, 1);
+            transform: translateY(-2px);
+        }
+        
+        .btn-analytics {
+            background: rgba(37, 99, 235, 0.85);
+            color: white;
+        }
+        
+        .btn-analytics:hover {
+            background: rgba(37, 99, 235, 1);
+            transform: translateY(-2px);
+        }
+        
+        @media (max-width: 768px) {
+            .navbar { flex-direction: column; gap: 15px; text-align: center; }
+            .card { padding: 20px; }
+            .btn-group { flex-direction: column; }
+            .btn { justify-content: center; }
+            .page-title { font-size: 24px; text-align: center; }
+        }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(37, 99, 235, 0.6); border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">📄 Reports & Export</div>
+        <div style="display: flex; gap: 15px; align-items: center;">
+            <button class="theme-toggle" onclick="toggleTheme()">🌓 Dark/Light</button>
+            <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h1 class="page-title">Reports Center</h1>
+        
+        <!-- Export Reports Card -->
+        <div class="card">
+            <h2>📊 Export Reports</h2>
+            <p>Download your silo data in different formats for analysis and record keeping</p>
+            <div class="btn-group">
+                <a href="/export_pdf" class="btn btn-pdf">📑 Export PDF Report</a>
+                <a href="/export_csv" class="btn btn-csv">📊 Export CSV File</a>
+            </div>
+        </div>
+        
+        <!-- Analytics Card -->
+        <div class="card">
+            <h2>📈 Analytics Dashboard</h2>
+            <p>View interactive charts, moisture trends, and risk distribution</p>
+            <div class="btn-group">
+                <a href="/analytics" class="btn btn-analytics">📉 View Analytics</a>
+                <a href="/inventory-flow" class="btn btn-analytics">📦 Inventory Flow</a>
+                <a href="/quality-alerts" class="btn btn-analytics">💧 Quality & Alerts</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function toggleTheme() {
+            document.body.classList.toggle('light');
+            localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+        }
+        
+        if (localStorage.getItem('theme') === 'light') {
+            document.body.classList.add('light');
+        }
+    </script>
+</body>
+</html>

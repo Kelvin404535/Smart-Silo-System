@@ -1,0 +1,216 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Grain - Smart Silo System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+        body {
+            background-image: url('https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=1600');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 0;
+        }
+
+        .navbar {
+            position: relative;
+            z-index: 10;
+            background: rgba(44, 62, 80, 0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .nav-brand { font-size: 18px; font-weight: bold; }
+
+        .back-btn {
+            background: rgba(37, 99, 235, 0.85);
+            color: white;
+            padding: 8px 18px;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .back-btn:hover { background: rgba(37, 99, 235, 1); transform: translateY(-2px); }
+
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px 16px 40px;
+        }
+
+        .form-card {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 32px 28px;
+            width: 100%;
+            max-width: 520px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        h2 {
+            color: white;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .form-group { margin-bottom: 18px; }
+
+        label {
+            display: block;
+            color: rgba(255,255,255,0.85);
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 10px;
+            color: white;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s;
+            -webkit-appearance: none;
+        }
+
+        input:focus, select:focus {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        input::placeholder { color: rgba(255,255,255,0.45); }
+
+        select option { background: #1e293b; color: white; }
+
+        small {
+            display: block;
+            margin-top: 5px;
+            font-size: 11px;
+            color: rgba(255,255,255,0.55);
+        }
+
+        .hint-safe    { color: #2ed573; }
+        .hint-warn    { color: #f59e0b; }
+        .hint-crit    { color: #ef4444; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: rgba(46, 213, 115, 0.85);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+
+        button[type="submit"]:hover {
+            background: rgba(46, 213, 115, 1);
+            transform: scale(1.02);
+            box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+        }
+
+        /* Mobile: make date input text readable on iOS */
+        input[type="date"] { color-scheme: dark; }
+
+        @media (max-width: 480px) {
+            .form-card { padding: 24px 18px; }
+            h2 { font-size: 19px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="nav-brand">🌾 Silo {{ silo.silo_number }}</div>
+        <a href="/dashboard" class="back-btn">← Back to Dashboard</a>
+    </div>
+
+    <div class="page-wrapper">
+        <div class="form-card">
+            <h2>📦 Add Grain to Silo {{ silo.silo_number }}</h2>
+            <form method="POST">
+                <div class="form-group">
+                    <label>Grain Type</label>
+                    <select name="grain_type" required>
+                        <option value="Maize">Maize (Corn)</option>
+                        <option value="Wheat">Wheat</option>
+                        <option value="Rice">Rice</option>
+                        <option value="Sorghum">Sorghum</option>
+                        <option value="Barley">Barley</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Moisture Content (%)</label>
+                    <input type="number" step="0.1" min="0" max="30" name="moisture"
+                           required placeholder="e.g., 12.5">
+                    <small>
+                        <span class="hint-safe">Safe: &lt;12.5%</span> &nbsp;|&nbsp;
+                        <span class="hint-warn">Warning: 12.5–14%</span> &nbsp;|&nbsp;
+                        <span class="hint-crit">Critical: &gt;14%</span>
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity (kg)</label>
+                    <input type="number" name="quantity" min="1" required placeholder="e.g., 25000">
+                </div>
+
+                <div class="form-group">
+                    <label>Farmer / Supplier</label>
+                    <select name="farmer_id">
+                        <option value="">— Select Farmer (optional) —</option>
+                        {% for farmer in farmers %}
+                        <option value="{{ farmer.id }}">{{ farmer.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Date of Entry</label>
+                    <input type="date" name="entry_date" required>
+                </div>
+
+                <button type="submit">💾 Save Grain Data</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
