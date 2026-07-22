@@ -46,10 +46,10 @@ recycle_bin.html
 request.form.get
 
 # ── Old root-level files replaced by backend/ package ─────────────────────────
-app.py
-app_backup.py
-config.py
-database.py
+/app.py
+/app_backup.py
+/config.py
+/database.py
 /requirements.txt
 /static/
 /templates/
