@@ -7,6 +7,9 @@ from app.config import Config
 
 def get_db():
     """Return a database connection with row factory set."""
+    db_dir = os.path.dirname(Config.DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(Config.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
@@ -15,9 +18,9 @@ def get_db():
 
 def init_db():
     """Create all tables if they don't exist, then seed a default admin."""
-    # Ensure instance/ folder exists locally
-    if not os.environ.get('RENDER'):
-        os.makedirs(os.path.dirname(Config.DB_PATH), exist_ok=True)
+    db_dir = os.path.dirname(Config.DB_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
     conn = get_db()
 
