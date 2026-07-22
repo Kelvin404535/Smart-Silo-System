@@ -22,18 +22,12 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = PRODUCTION
 
-    # ── Email (set these env vars in Render or production) ────────────────
-    MAIL_SERVER         = _setting('MAIL_SERVER', 'smtp.gmail.com', required=PRODUCTION)
-    MAIL_PORT           = int(_setting('MAIL_PORT', '587', required=PRODUCTION))
-    MAIL_USE_TLS        = _setting('MAIL_USE_TLS', 'True', required=PRODUCTION).strip().lower() in ('true', '1', 'yes')
-    MAIL_USE_SSL        = _setting('MAIL_USE_SSL', 'False', required=PRODUCTION).strip().lower() in ('true', '1', 'yes')
-    MAIL_USERNAME       = _setting('MAIL_USERNAME', None if PRODUCTION else '', required=PRODUCTION)
-    MAIL_PASSWORD       = _setting('MAIL_PASSWORD', None if PRODUCTION else '', required=PRODUCTION)
-    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', None if PRODUCTION else '', required=PRODUCTION)
-    MAIL_DEBUG          = False   # set True only during local debugging
+    # ── Email — SendGrid (HTTPS, works on Render free tier) ───────────────────
+    # Set SENDGRID_API_KEY and MAIL_DEFAULT_SENDER in Render environment vars.
+    SENDGRID_API_KEY    = _setting('SENDGRID_API_KEY',    '')
+    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
 
     # ── Database ──────────────────────────────────────────────────────────────
-    # Render mounts a persistent disk at /var/data; locally the instance/ folder is used.
     if os.environ.get('RENDER'):
         DB_PATH = os.environ.get('DB_PATH', '/var/data/silo_management.db')
     else:
@@ -41,6 +35,6 @@ class Config:
                                'instance', 'silo_management.db')
 
     # ── Default admin (used only when seeding an empty DB) ────────────────────
-    ADMIN_EMAIL    = _setting('ADMIN_EMAIL', 'admin@localhost.invalid', required=PRODUCTION)
-    ADMIN_PASSWORD = _setting('ADMIN_PASSWORD', 'change-me-local', required=PRODUCTION)
+    ADMIN_EMAIL    = _setting('ADMIN_EMAIL',    'admin@localhost.invalid', required=PRODUCTION)
+    ADMIN_PASSWORD = _setting('ADMIN_PASSWORD', 'change-me-local',        required=PRODUCTION)
     ADMIN_USERNAME = _setting('ADMIN_USERNAME', 'admin')

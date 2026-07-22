@@ -1,10 +1,7 @@
 import os
 from flask import Flask, jsonify, session
-from flask_mail import Mail
 
 from app.config import Config
-
-mail = Mail()
 
 
 def create_app():
@@ -24,9 +21,6 @@ def create_app():
     @app.route('/health')
     def health():
         return jsonify(status='ok')
-
-    # Initialise extensions
-    mail.init_app(app)
 
     # Register all blueprints
     from app.routes.auth         import auth_bp

@@ -6,7 +6,6 @@ import threading
 from datetime import datetime
 
 from flask import request
-from flask_mail import Message
 from werkzeug.security import generate_password_hash, check_password_hash
 
 
@@ -87,6 +86,88 @@ def calculate_risk(moisture, days_stored):
     return 'green',  f'SAFE: {moisture}% moisture, {days_stored} days'
 
 
+# ── SendGrid email helper ─────────────────────────────────────────────────────
+
+def _sendgrid_send(api_key: str, from_email: str, recipients: list,
+                   subject: str, html_body: str):
+    """
+    Send an email via SendGrid HTTP API.
+    Returns (True, None) on success or (False, error_str) on failure.
+    Uses only the stdlib `urllib` so no extra import is needed at runtime.
+    """
+    import json
+    import urllib.request
+    import urllib.error
+
+    payload = {
+        'personalizations': [{'to': [{'email': r} for r in recipients]}],
+        'from':    {'email': from_email},
+        'subject': subject,
+        'content': [{'type': 'text/html', 'value': html_body}],
+    }
+    data = json.dumps(payload).encode('utf-8')
+    req  = urllib.request.Request(
+        'https://api.sendgrid.com/v3/mail/send',
+        data    = data,
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type':  'application/json',
+        },
+        method  = 'POST',
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            print(f'✅ SendGrid accepted email for {recipients} '
+                  f'(HTTP {resp.status})')
+            return True, None
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode('utf-8', errors='replace')
+        msg  = f'SendGrid HTTP {exc.code}: {body}'
+        print(f'❌ {msg}')
+        return False, msg
+    except Exception as exc:
+        print(f'❌ SendGrid error ({type(exc).__name__}): {exc}')
+        return False, str(exc)
+
+
+def _dispatch_email(recipients: list, subject: str, html_body: str):
+    """
+    Fire email in a non-daemon background thread so it never blocks a request.
+    Needs Flask app context to read config.
+    """
+    from flask import current_app
+    api_key    = current_app.config.get('SENDGRID_API_KEY', '')
+    from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
+
+    if not api_key:
+        print('⚠️  SENDGRID_API_KEY not set — email skipped.')
+        return
+    if not from_email:
+        print('⚠️  MAIL_DEFAULT_SENDER not set — email skipped.')
+        return
+
+    def _run():
+        _sendgrid_send(api_key, from_email, recipients, subject, html_body)
+
+    t = threading.Thread(target=_run, daemon=False)
+    t.start()
+
+
+# ── Alert HTML template ───────────────────────────────────────────────────────
+
+def _alert_html(label: str, colour: str, silo_number: str, message: str) -> str:
+    return f'''
+    <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px">
+      <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;
+                  border-top:5px solid {colour};padding:30px">
+        <h2 style="color:{colour};margin-top:0">&#9888; {label} &mdash; Silo {silo_number}</h2>
+        <p style="font-size:16px">{message}</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb">
+        <small style="color:#6b7280">Smart Silo Management System &mdash; automated alert</small>
+      </div>
+    </body></html>'''
+
+
 # ── Alert persistence ─────────────────────────────────────────────────────────
 
 def save_alert_to_db(silo_id, alert_type, severity, message):
@@ -115,52 +196,6 @@ def save_alert_to_db(silo_id, alert_type, severity, message):
         return False
 
 
-def _send_email_in_thread(app, mail, recipients, subject, html_body):
-    """Run inside a background thread — needs its own app context."""
-    try:
-        with app.app_context():
-            server   = app.config.get('MAIL_SERVER')
-            port     = app.config.get('MAIL_PORT')
-            username = app.config.get('MAIL_USERNAME')
-            sender   = app.config.get('MAIL_DEFAULT_SENDER')
-            print(f'📧 Attempting email: server={server}:{port} from={sender} to={recipients}')
-            msg = Message(subject, recipients=recipients)
-            msg.html = html_body
-            mail.send(msg)
-            print(f'✅ Email delivered to {recipients}')
-    except Exception as exc:
-        print(f'❌ Email thread error ({type(exc).__name__}): {exc}')
-
-
-def _dispatch_email(recipients, subject, html_body):
-    """Push an email onto a background thread so the request returns instantly."""
-    from flask import current_app
-    from app import mail as _mail
-
-    if not recipients:
-        return
-    app = current_app._get_current_object()
-    t = threading.Thread(
-        target=_send_email_in_thread,
-        args=(app, _mail, recipients, subject, html_body),
-        daemon=True,
-    )
-    t.start()
-
-
-def _alert_html(label, colour, silo_number, message):
-    return f'''
-    <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px">
-      <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;
-                  border-top:5px solid {colour};padding:30px">
-        <h2 style="color:{colour};margin-top:0">&#9888; {label} &mdash; Silo {silo_number}</h2>
-        <p style="font-size:16px">{message}</p>
-        <hr style="border:none;border-top:1px solid #e5e7eb">
-        <small style="color:#6b7280">Smart Silo Management System &mdash; automated alert</small>
-      </div>
-    </body></html>'''
-
-
 def check_and_send_alerts():
     from app.database import get_db
     from flask import current_app
@@ -186,12 +221,9 @@ def check_and_send_alerts():
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
 
-        mail_configured = bool(
-            current_app.config.get('MAIL_USERNAME') and
-            current_app.config.get('MAIL_PASSWORD')
-        )
+        mail_configured = bool(current_app.config.get('SENDGRID_API_KEY'))
         if not mail_configured:
-            print('⚠️  Mail not configured — alerts saved to DB only.')
+            print('⚠️  SENDGRID_API_KEY not set — alerts saved to DB only.')
 
         created = 0
         for silo in silos:
@@ -267,7 +299,41 @@ def check_and_send_alerts():
         print(f'❌ Alert check error: {exc}')
 
 
-# ── Email helpers ─────────────────────────────────────────────────────────────
+# ── Test email ────────────────────────────────────────────────────────────────
+
+def send_test_email(recipient: str):
+    """
+    Send a test email via SendGrid synchronously.
+    Returns (True, None) on success or (False, error_str) on failure.
+    """
+    from flask import current_app
+    api_key    = current_app.config.get('SENDGRID_API_KEY', '')
+    from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
+
+    if not api_key:
+        return False, 'SENDGRID_API_KEY is not set in Render environment variables.'
+    if not from_email:
+        return False, 'MAIL_DEFAULT_SENDER is not set in Render environment variables.'
+
+    html = '''
+    <html><body style="font-family:Arial">
+    <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+        <h2 style="color:#10b981">&#10003; Test Alert</h2>
+        <p>Your Smart Silo alert system is working correctly!</p>
+        <ul>
+            <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+            <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+            <li>&#128230; Low stock: less than 10% capacity</li>
+        </ul>
+        <hr><small>Smart Silo Management System</small>
+    </div></body></html>'''
+
+    print(f'📧 Sending test email to {recipient} via SendGrid...')
+    return _sendgrid_send(api_key, from_email, [recipient],
+                          'Test Alert - Smart Silo System', html)
+
+
+# ── URL helper ────────────────────────────────────────────────────────────────
 
 def get_base_url() -> str:
     """Return the public base URL (works locally and on Render)."""
@@ -278,48 +344,3 @@ def get_base_url() -> str:
         return f'https://{host}'
     except RuntimeError:
         return 'http://localhost:5000'
-
-
-def send_test_email(mail, recipient: str):
-    """
-    Send test email in a non-daemon thread with a 25s join so the worker
-    doesn't timeout, but the thread can finish even if the join expires.
-    Returns (True, None) on success or (False, error_str) on failure.
-    """
-    from flask import current_app
-    app = current_app._get_current_object()
-
-    result = {'ok': False, 'err': 'Email timed out — check Render logs'}
-
-    def _send():
-        try:
-            print(f'📧 Sending test email to {recipient}...')
-            with app.app_context():
-                msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
-                msg.html = '''
-                <html><body style="font-family:Arial">
-                <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-                    <h2 style="color:#10b981">&#10003; Test Alert</h2>
-                    <p>Your Smart Silo alert system is working correctly!</p>
-                    <ul>
-                        <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
-                        <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-                        <li>&#128230; Low stock: less than 10% capacity</li>
-                    </ul>
-                    <hr><small>Smart Silo Management System</small>
-                </div></body></html>'''
-                mail.send(msg)
-            print(f'✅ Test email delivered to {recipient}')
-            result['ok']  = True
-            result['err'] = None
-        except Exception as exc:
-            print(f'❌ Test email error ({type(exc).__name__}): {exc}')
-            result['ok']  = False
-            result['err'] = str(exc)
-
-    # daemon=False so the thread survives even if the HTTP worker moves on
-    t = threading.Thread(target=_send, daemon=False)
-    t.start()
-    t.join(timeout=25)   # wait up to 25s (well within Gunicorn's 120s timeout)
-
-    return result['ok'], result['err']

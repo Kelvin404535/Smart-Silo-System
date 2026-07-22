@@ -1,4 +1,5 @@
-from flask import Blueprint, redirect, url_for, request, session, render_template, current_app
+from flask import (Blueprint, redirect, url_for, request,
+                   session, render_template, current_app)
 
 from app.database import get_db
 from app.decorators import login_required
@@ -37,17 +38,6 @@ def alert_settings():
 @alerts_bp.route('/send-test-alert')
 @login_required
 def send_test_alert():
-    from app import mail
-
-    # Check env vars are set
-    missing = [k for k in ('MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER')
-               if not current_app.config.get(k)]
-    if missing:
-        return redirect(url_for(
-            'alerts.alert_settings',
-            error=f"Email not configured. Missing env vars: {', '.join(missing)}",
-        ))
-
     conn = get_db()
     user = conn.execute(
         'SELECT email FROM users WHERE id = ?', (session['user_id'],)
@@ -60,9 +50,7 @@ def send_test_alert():
             error='No email saved. Enter your email above and click Save Settings first.',
         ))
 
-    # Send directly (synchronous) — fast enough for a single email, no thread needed
-    print(f'📧 Test email queued for {user["email"]}')
-    ok, err = send_test_email(mail, user['email'])
+    ok, err = send_test_email(user['email'])
     if ok:
         return redirect(url_for(
             'alerts.alert_settings',

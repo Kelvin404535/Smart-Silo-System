@@ -1,16 +1,13 @@
 import secrets
-import random
-import string
 
 from flask import (Blueprint, render_template, request,
-                   redirect, url_for, session, flash, current_app)
-from flask_mail import Message
+                   redirect, url_for, session, current_app)
 from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.utils import (is_strong_password, hash_password, verify_password,
                        check_account_lockout, record_failed_attempt,
-                       reset_failed_attempts, get_base_url)
+                       reset_failed_attempts, get_base_url, _sendgrid_send)
 from app.decorators import login_required, admin_required
 
 auth_bp = Blueprint('auth', __name__)
@@ -116,7 +113,6 @@ def register():
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
-    from app import mail  # import here to avoid circular import at module level
     if request.method == 'POST':
         email = request.form.get('email', '').strip()
         conn  = get_db()
@@ -125,8 +121,8 @@ def forgot_password():
         ).fetchone()
 
         if user:
-            token  = secrets.token_urlsafe(32)
-            expiry = datetime.now() + timedelta(hours=1)
+            token      = secrets.token_urlsafe(32)
+            expiry     = datetime.now() + timedelta(hours=1)
             conn.execute('DELETE FROM password_resets WHERE email = ?', (email,))
             conn.execute(
                 'INSERT INTO password_resets (email, token, expiry) VALUES (?, ?, ?)',
@@ -135,34 +131,27 @@ def forgot_password():
             conn.commit()
             conn.close()
 
-            reset_link = f'{get_base_url()}/reset-password/{token}'
-            if not current_app.config.get('MAIL_USERNAME') or not current_app.config.get('MAIL_PASSWORD'):
-                print('Password reset requested, but mail settings are not configured.')
-                return render_template('forgot_password.html',
-                                       message='If that email exists, a reset link will be sent.')
+            reset_link  = f'{get_base_url()}/reset-password/{token}'
+            api_key     = current_app.config.get('SENDGRID_API_KEY', '')
+            from_email  = current_app.config.get('MAIL_DEFAULT_SENDER', '')
 
-            try:
-                msg = Message('Password Reset - Smart Silo System',
-                              recipients=[email])
-                msg.body = (
-                    'You requested a password reset for your Smart Silo System account. '\
-                    f'Visit the following link to reset your password:\n\n{reset_link}\n\n'
-                    'This link expires in 1 hour.'
-                )
-                msg.html = (
+            if api_key and from_email:
+                html = (
                     f'<h2>Password Reset</h2>'
                     f'<p>Click the link below to reset your password (expires in 1 hour):</p>'
                     f'<p><a href="{reset_link}">{reset_link}</a></p>'
                 )
-                mail.send(msg)
-                return render_template('forgot_password.html',
-                                       message='If that email exists, a reset link will be sent.')
-            except Exception as exc:
-                print(f'Email error: {exc}')
-                return render_template('forgot_password.html',
-                                       error='Failed to send email. Try again later.')
+                ok, err = _sendgrid_send(
+                    api_key, from_email, [email],
+                    'Password Reset - Smart Silo System', html)
+                if not ok:
+                    print(f'Password reset email error: {err}')
+            else:
+                print(f'Password reset link (email not configured): {reset_link}')
+        else:
+            conn.close()
 
-        conn.close()
+        # Always show the same message to avoid user enumeration
         return render_template('forgot_password.html',
                                message='If that email exists, a reset link will be sent.')
 
