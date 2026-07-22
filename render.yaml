@@ -5,13 +5,11 @@ services:
     buildCommand: pip install -r backend/requirements.txt
     startCommand: cd backend && gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     healthCheckPath: /health
-    disk:
-      name: smart-silo-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: RENDER
         value: true
+      - key: DB_PATH
+        value: /tmp/silo_management.db
       - key: SECRET_KEY
         generateValue: true
       - key: MAIL_USERNAME
