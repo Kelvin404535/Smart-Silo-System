@@ -115,11 +115,45 @@ def save_alert_to_db(silo_id, alert_type, severity, message):
         return False
 
 
+def _send_alert_email(mail, recipients: list, subject: str, silo_number: str,
+                      message: str, severity: str):
+    """Send an alert email to a list of recipient addresses."""
+    if not recipients:
+        return
+    colour = '#ef4444' if severity == 'critical' else '#f59e0b'
+    label  = 'CRITICAL ALERT' if severity == 'critical' else 'WARNING'
+    try:
+        msg = Message(subject, recipients=recipients)
+        msg.html = f'''
+        <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px">
+          <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;
+                      border-top:5px solid {colour};padding:30px">
+            <h2 style="color:{colour};margin-top:0">⚠️ {label} — Silo {silo_number}</h2>
+            <p style="font-size:16px">{message}</p>
+            <hr style="border:none;border-top:1px solid #e5e7eb">
+            <small style="color:#6b7280">Smart Silo Management System — automated alert</small>
+          </div>
+        </body></html>'''
+        mail.send(msg)
+    except Exception as exc:
+        print(f'❌ Alert email error: {exc}')
+
+
 def check_and_send_alerts():
     from app.database import get_db
+    from flask import current_app
+    from app import mail as _mail
+
     print('🔍 Checking silos for risks...')
     try:
         conn = get_db()
+
+        # Collect all users who have an email address configured
+        recipient_rows = conn.execute(
+            "SELECT email FROM users WHERE email IS NOT NULL AND email != ''"
+        ).fetchall()
+        recipients = [r['email'] for r in recipient_rows]
+
         silos = conn.execute('''
             SELECT s.*,
                    COALESCE(
@@ -131,6 +165,14 @@ def check_and_send_alerts():
                    ) AS entry_date
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
+
+        # Check whether email is actually configured before trying to send
+        mail_configured = bool(
+            current_app.config.get('MAIL_USERNAME') and
+            current_app.config.get('MAIL_PASSWORD')
+        )
+        if not mail_configured:
+            print('⚠️  Mail not configured — alerts will be saved to DB only.')
 
         created = 0
         for silo in silos:
@@ -148,30 +190,62 @@ def check_and_send_alerts():
             capacity = silo['capacity_kg'] or 0
             stock    = silo['current_stock_kg'] or 0
             pct      = (stock / capacity * 100) if capacity > 0 else 100
+            silo_num = silo['silo_number']
 
             if moisture > 14 or days > 90:
                 if moisture > 14:
-                    created += save_alert_to_db(
-                        silo['id'], 'high_moisture', 'critical',
-                        f'CRITICAL: {moisture}% moisture')
+                    alert_msg = f'CRITICAL: Silo {silo_num} has {moisture}% moisture (limit: 14%)'
+                    saved = save_alert_to_db(
+                        silo['id'], 'high_moisture', 'critical', alert_msg)
+                    created += saved
+                    if saved and mail_configured and recipients:
+                        _send_alert_email(
+                            _mail, recipients,
+                            f'🔴 CRITICAL: High Moisture — Silo {silo_num}',
+                            silo_num, alert_msg, 'critical')
                 if days > 90:
-                    created += save_alert_to_db(
-                        silo['id'], 'storage_age', 'critical',
-                        f'CRITICAL: grain stored for {days} days')
+                    alert_msg = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
+                    saved = save_alert_to_db(
+                        silo['id'], 'storage_age', 'critical', alert_msg)
+                    created += saved
+                    if saved and mail_configured and recipients:
+                        _send_alert_email(
+                            _mail, recipients,
+                            f'🔴 CRITICAL: Long Storage — Silo {silo_num}',
+                            silo_num, alert_msg, 'critical')
+
             elif moisture > 12.5 or days > 60:
                 if moisture > 12.5:
-                    created += save_alert_to_db(
-                        silo['id'], 'high_moisture', 'warning',
-                        f'WARNING: {moisture}% moisture')
+                    alert_msg = f'WARNING: Silo {silo_num} has {moisture}% moisture (limit: 12.5%)'
+                    saved = save_alert_to_db(
+                        silo['id'], 'high_moisture', 'warning', alert_msg)
+                    created += saved
+                    if saved and mail_configured and recipients:
+                        _send_alert_email(
+                            _mail, recipients,
+                            f'🟡 WARNING: High Moisture — Silo {silo_num}',
+                            silo_num, alert_msg, 'warning')
                 if days > 60:
-                    created += save_alert_to_db(
-                        silo['id'], 'storage_age', 'warning',
-                        f'WARNING: grain stored for {days} days')
+                    alert_msg = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
+                    saved = save_alert_to_db(
+                        silo['id'], 'storage_age', 'warning', alert_msg)
+                    created += saved
+                    if saved and mail_configured and recipients:
+                        _send_alert_email(
+                            _mail, recipients,
+                            f'🟡 WARNING: Long Storage — Silo {silo_num}',
+                            silo_num, alert_msg, 'warning')
 
             if 0 < stock and pct < 10:
-                created += save_alert_to_db(
-                    silo['id'], 'low_stock', 'warning',
-                    f'LOW STOCK: {stock}kg remaining ({pct:.1f}% capacity)')
+                alert_msg = f'LOW STOCK: Silo {silo_num} has {stock}kg remaining ({pct:.1f}% capacity)'
+                saved = save_alert_to_db(
+                    silo['id'], 'low_stock', 'warning', alert_msg)
+                created += saved
+                if saved and mail_configured and recipients:
+                    _send_alert_email(
+                        _mail, recipients,
+                        f'🟡 WARNING: Low Stock — Silo {silo_num}',
+                        silo_num, alert_msg, 'warning')
 
         conn.close()
         print(f'✅ Alert check complete. {created} alerts created.')
