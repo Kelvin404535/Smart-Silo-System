@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, url_for, request, session
+from flask import Blueprint, redirect, url_for, request, session, render_template, current_app
 
 from app.database import get_db
 from app.decorators import login_required
@@ -10,9 +10,6 @@ alerts_bp = Blueprint('alerts', __name__)
 @alerts_bp.route('/alert-settings', methods=['GET', 'POST'])
 @login_required
 def alert_settings():
-    from flask import render_template
-    from app import mail
-
     message = request.args.get('message')
     error   = request.args.get('error')
 
@@ -41,15 +38,14 @@ def alert_settings():
 @login_required
 def send_test_alert():
     from app import mail
-    from flask import current_app
 
-    # Surface missing config immediately so it shows on screen
+    # Check env vars are set
     missing = [k for k in ('MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_DEFAULT_SENDER')
                if not current_app.config.get(k)]
     if missing:
         return redirect(url_for(
             'alerts.alert_settings',
-            error=f"Email not configured on server. Missing: {', '.join(missing)}",
+            error=f"Email not configured. Missing env vars: {', '.join(missing)}",
         ))
 
     conn = get_db()
@@ -61,16 +57,12 @@ def send_test_alert():
     if not user or not user['email']:
         return redirect(url_for(
             'alerts.alert_settings',
-            error='No email configured. Add your email in settings first.',
+            error='No email saved. Enter your email above and click Save Settings first.',
         ))
 
-    ok, err_msg = send_test_email(mail, user['email'])
-    if ok:
-        return redirect(url_for(
-            'alerts.alert_settings',
-            message='Test email sent successfully! Check your inbox.',
-        ))
+    # Fires in background thread — returns immediately, no timeout
+    send_test_email(mail, user['email'])
     return redirect(url_for(
         'alerts.alert_settings',
-        error=f'Failed to send email: {err_msg}',
+        message='Test email sent! Check your inbox in a few seconds.',
     ))

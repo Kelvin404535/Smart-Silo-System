@@ -2,6 +2,7 @@
 Shared helpers: password validation, risk calculation, alert logic, email.
 """
 import re
+import threading
 from datetime import datetime
 
 from flask import request
@@ -49,8 +50,8 @@ def check_account_lockout(identifier: str):
             minutes = int(remaining.total_seconds() // 60)
             seconds = int(remaining.total_seconds() % 60)
             return True, (
-                f"Too many failed attempts. Try again after {minutes}m {seconds}s."), _locked_accounts[identifier]
-        # Lock expired — clean up
+                f"Too many failed attempts. Try again after {minutes}m {seconds}s."
+            ), _locked_accounts[identifier]
         del _locked_accounts[identifier]
         _failed_attempts.pop(identifier, None)
     return False, None, None
@@ -62,7 +63,6 @@ def record_failed_attempt(identifier: str):
     if identifier in _locked_accounts and now < _locked_accounts[identifier]:
         _locked_accounts[identifier] = _locked_accounts[identifier] + timedelta(minutes=5)
         return
-
     _failed_attempts[identifier] = _failed_attempts.get(identifier, 0) + 1
     if _failed_attempts[identifier] >= 5:
         _locked_accounts[identifier] = now + timedelta(minutes=2)
@@ -115,40 +115,55 @@ def save_alert_to_db(silo_id, alert_type, severity, message):
         return False
 
 
-def _send_alert_email(mail, recipients: list, subject: str, silo_number: str,
-                      message: str, severity: str):
-    """Send an alert email to a list of recipient addresses."""
+def _send_email_in_thread(app, mail, recipients, subject, html_body):
+    """Run inside a background thread — needs its own app context."""
+    try:
+        with app.app_context():
+            msg = Message(subject, recipients=recipients)
+            msg.html = html_body
+            mail.send(msg)
+            print(f'✅ Email sent to {recipients}')
+    except Exception as exc:
+        print(f'❌ Email thread error: {exc}')
+
+
+def _dispatch_email(recipients, subject, html_body):
+    """Push an email onto a background thread so the request returns instantly."""
+    from flask import current_app
+    from app import mail as _mail
+
     if not recipients:
         return
-    colour = '#ef4444' if severity == 'critical' else '#f59e0b'
-    label  = 'CRITICAL ALERT' if severity == 'critical' else 'WARNING'
-    try:
-        msg = Message(subject, recipients=recipients)
-        msg.html = f'''
-        <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px">
-          <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;
-                      border-top:5px solid {colour};padding:30px">
-            <h2 style="color:{colour};margin-top:0">⚠️ {label} — Silo {silo_number}</h2>
-            <p style="font-size:16px">{message}</p>
-            <hr style="border:none;border-top:1px solid #e5e7eb">
-            <small style="color:#6b7280">Smart Silo Management System — automated alert</small>
-          </div>
-        </body></html>'''
-        mail.send(msg)
-    except Exception as exc:
-        print(f'❌ Alert email error: {exc}')
+    app = current_app._get_current_object()
+    t = threading.Thread(
+        target=_send_email_in_thread,
+        args=(app, _mail, recipients, subject, html_body),
+        daemon=True,
+    )
+    t.start()
+
+
+def _alert_html(label, colour, silo_number, message):
+    return f'''
+    <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px">
+      <div style="max-width:600px;margin:auto;background:#fff;border-radius:10px;
+                  border-top:5px solid {colour};padding:30px">
+        <h2 style="color:{colour};margin-top:0">&#9888; {label} &mdash; Silo {silo_number}</h2>
+        <p style="font-size:16px">{message}</p>
+        <hr style="border:none;border-top:1px solid #e5e7eb">
+        <small style="color:#6b7280">Smart Silo Management System &mdash; automated alert</small>
+      </div>
+    </body></html>'''
 
 
 def check_and_send_alerts():
     from app.database import get_db
     from flask import current_app
-    from app import mail as _mail
 
     print('🔍 Checking silos for risks...')
     try:
         conn = get_db()
 
-        # Collect all users who have an email address configured
         recipient_rows = conn.execute(
             "SELECT email FROM users WHERE email IS NOT NULL AND email != ''"
         ).fetchall()
@@ -157,7 +172,7 @@ def check_and_send_alerts():
         silos = conn.execute('''
             SELECT s.*,
                    COALESCE(
-                       (SELECT moisture   FROM grain_batches
+                       (SELECT moisture FROM grain_batches
                         WHERE silo_id = s.id ORDER BY entry_date DESC LIMIT 1), 0
                    ) AS moisture,
                    (SELECT entry_date FROM grain_batches
@@ -166,13 +181,12 @@ def check_and_send_alerts():
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
 
-        # Check whether email is actually configured before trying to send
         mail_configured = bool(
             current_app.config.get('MAIL_USERNAME') and
             current_app.config.get('MAIL_PASSWORD')
         )
         if not mail_configured:
-            print('⚠️  Mail not configured — alerts will be saved to DB only.')
+            print('⚠️  Mail not configured — alerts saved to DB only.')
 
         created = 0
         for silo in silos:
@@ -194,58 +208,53 @@ def check_and_send_alerts():
 
             if moisture > 14 or days > 90:
                 if moisture > 14:
-                    alert_msg = f'CRITICAL: Silo {silo_num} has {moisture}% moisture (limit: 14%)'
-                    saved = save_alert_to_db(
-                        silo['id'], 'high_moisture', 'critical', alert_msg)
+                    msg = f'CRITICAL: Silo {silo_num} has {moisture}% moisture (limit: 14%)'
+                    saved = save_alert_to_db(silo['id'], 'high_moisture', 'critical', msg)
                     created += saved
                     if saved and mail_configured and recipients:
-                        _send_alert_email(
-                            _mail, recipients,
-                            f'🔴 CRITICAL: High Moisture — Silo {silo_num}',
-                            silo_num, alert_msg, 'critical')
+                        _dispatch_email(
+                            recipients,
+                            f'CRITICAL: High Moisture - Silo {silo_num}',
+                            _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
                 if days > 90:
-                    alert_msg = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
-                    saved = save_alert_to_db(
-                        silo['id'], 'storage_age', 'critical', alert_msg)
+                    msg = f'CRITICAL: Silo {silo_num} grain stored for {days} days (limit: 90)'
+                    saved = save_alert_to_db(silo['id'], 'storage_age', 'critical', msg)
                     created += saved
                     if saved and mail_configured and recipients:
-                        _send_alert_email(
-                            _mail, recipients,
-                            f'🔴 CRITICAL: Long Storage — Silo {silo_num}',
-                            silo_num, alert_msg, 'critical')
+                        _dispatch_email(
+                            recipients,
+                            f'CRITICAL: Long Storage - Silo {silo_num}',
+                            _alert_html('CRITICAL ALERT', '#ef4444', silo_num, msg))
 
             elif moisture > 12.5 or days > 60:
                 if moisture > 12.5:
-                    alert_msg = f'WARNING: Silo {silo_num} has {moisture}% moisture (limit: 12.5%)'
-                    saved = save_alert_to_db(
-                        silo['id'], 'high_moisture', 'warning', alert_msg)
+                    msg = f'WARNING: Silo {silo_num} has {moisture}% moisture (limit: 12.5%)'
+                    saved = save_alert_to_db(silo['id'], 'high_moisture', 'warning', msg)
                     created += saved
                     if saved and mail_configured and recipients:
-                        _send_alert_email(
-                            _mail, recipients,
-                            f'🟡 WARNING: High Moisture — Silo {silo_num}',
-                            silo_num, alert_msg, 'warning')
+                        _dispatch_email(
+                            recipients,
+                            f'WARNING: High Moisture - Silo {silo_num}',
+                            _alert_html('WARNING', '#f59e0b', silo_num, msg))
                 if days > 60:
-                    alert_msg = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
-                    saved = save_alert_to_db(
-                        silo['id'], 'storage_age', 'warning', alert_msg)
+                    msg = f'WARNING: Silo {silo_num} grain stored for {days} days (limit: 60)'
+                    saved = save_alert_to_db(silo['id'], 'storage_age', 'warning', msg)
                     created += saved
                     if saved and mail_configured and recipients:
-                        _send_alert_email(
-                            _mail, recipients,
-                            f'🟡 WARNING: Long Storage — Silo {silo_num}',
-                            silo_num, alert_msg, 'warning')
+                        _dispatch_email(
+                            recipients,
+                            f'WARNING: Long Storage - Silo {silo_num}',
+                            _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
             if 0 < stock and pct < 10:
-                alert_msg = f'LOW STOCK: Silo {silo_num} has {stock}kg remaining ({pct:.1f}% capacity)'
-                saved = save_alert_to_db(
-                    silo['id'], 'low_stock', 'warning', alert_msg)
+                msg = f'LOW STOCK: Silo {silo_num} has {stock}kg remaining ({pct:.1f}% capacity)'
+                saved = save_alert_to_db(silo['id'], 'low_stock', 'warning', msg)
                 created += saved
                 if saved and mail_configured and recipients:
-                    _send_alert_email(
-                        _mail, recipients,
-                        f'🟡 WARNING: Low Stock — Silo {silo_num}',
-                        silo_num, alert_msg, 'warning')
+                    _dispatch_email(
+                        recipients,
+                        f'WARNING: Low Stock - Silo {silo_num}',
+                        _alert_html('WARNING', '#f59e0b', silo_num, msg))
 
         conn.close()
         print(f'✅ Alert check complete. {created} alerts created.')
@@ -267,23 +276,30 @@ def get_base_url() -> str:
 
 
 def send_test_email(mail, recipient: str):
-    """Send a test email. Returns (True, None) on success or (False, error_str) on failure."""
-    try:
-        msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
-        msg.html = '''
-        <html><body style="font-family:Arial">
-        <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-            <h2 style="color:#10b981">✅ Test Alert</h2>
-            <p>Your Smart Silo alert system is working correctly!</p>
-            <ul>
-                <li>🔴 Critical: moisture &gt;14% or storage &gt;90 days</li>
-                <li>🟡 Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-                <li>📦 Low stock: less than 10% capacity</li>
-            </ul>
-            <hr><small>Smart Silo Management System</small>
-        </div></body></html>'''
-        mail.send(msg)
-        return True, None
-    except Exception as exc:
-        print(f'Email error: {exc}')
-        return False, str(exc)
+    """
+    Fire a test email in a background thread.
+    Returns immediately with (True, None) — actual delivery errors appear in logs.
+    """
+    from flask import current_app
+    app = current_app._get_current_object()
+
+    html = '''
+    <html><body style="font-family:Arial">
+    <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+        <h2 style="color:#10b981">&#10003; Test Alert</h2>
+        <p>Your Smart Silo alert system is working correctly!</p>
+        <ul>
+            <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+            <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+            <li>&#128230; Low stock: less than 10% capacity</li>
+        </ul>
+        <hr><small>Smart Silo Management System</small>
+    </div></body></html>'''
+
+    t = threading.Thread(
+        target=_send_email_in_thread,
+        args=(app, mail, [recipient], 'Test Alert - Smart Silo System', html),
+        daemon=True,
+    )
+    t.start()
+    return True, None
