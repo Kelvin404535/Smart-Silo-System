@@ -9,6 +9,13 @@ def _setting(name, default=None, required=False):
     return value
 
 
+def _bool_setting(name, default=False):
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {'1', 'true', 'yes', 'on'}
+
+
 class Config:
     # ── Security ──────────────────────────────────────────────────────────────
     SECRET_KEY = _setting('SECRET_KEY', 'local_dev_secret_change_me')
@@ -21,8 +28,8 @@ class Config:
     # Set these as environment variables in PythonAnywhere or a .env file.
     MAIL_SERVER         = _setting('MAIL_SERVER',  'smtp.gmail.com')
     MAIL_PORT           = int(_setting('MAIL_PORT', '587'))
-    MAIL_USE_TLS        = True
-    MAIL_USE_SSL        = False
+    MAIL_USE_TLS        = _bool_setting('MAIL_USE_TLS', True)
+    MAIL_USE_SSL        = _bool_setting('MAIL_USE_SSL', False)
     MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')   # your Gmail address
     MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')   # Gmail App Password
     MAIL_DEFAULT_SENDER = _setting(

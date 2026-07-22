@@ -115,6 +115,7 @@ def _send_async(app, mail, msg):
             print(f'✅ Email sent to {msg.recipients}')
         except Exception as exc:
             print(f'❌ Email error ({type(exc).__name__}): {exc}')
+            print(f'❌ Mail sender: {msg.sender}; recipients: {msg.recipients}')
 
 
 def _dispatch_email(subject: str, recipients: list, html_body: str):
