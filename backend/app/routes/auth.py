@@ -2,13 +2,12 @@ import secrets
 
 from flask import (Blueprint, render_template, request,
                    redirect, url_for, session, current_app)
-from flask_mail import Message
 from datetime import datetime, timedelta
 
 from app.database import get_db
 from app.utils import (is_strong_password, hash_password, verify_password,
                        check_account_lockout, record_failed_attempt,
-                       reset_failed_attempts, get_base_url)
+                       reset_failed_attempts, get_base_url, _dispatch_email)
 from app.decorators import login_required, admin_required
 
 auth_bp = Blueprint('auth', __name__)
@@ -98,6 +97,25 @@ def register():
         )
         conn.commit()
         conn.close()
+
+        if current_app.config.get('MAIL_USERNAME') and current_app.config.get('MAIL_PASSWORD'):
+            _dispatch_email(
+                'Smart Silo Registration Pending',
+                [email],
+                f'''
+                <html><body style="font-family:Arial;padding:20px">
+                  <div style="max-width:500px;margin:auto;background:#fff;
+                              border-radius:10px;border-top:5px solid #10b981;padding:28px">
+                    <h2 style="color:#10b981;margin-top:0">Registration Received</h2>
+                    <p>Hi <strong>{full_name}</strong>,</p>
+                    <p>Your registration request has been submitted and is pending approval.</p>
+                    <p>You will receive another email once your account is approved.</p>
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                    <small style="color:#9ca3af">Smart Silo Management System</small>
+                  </div>
+                </body></html>'''
+            )
+
         return render_template('registration_pending.html', name=full_name)
 
     return render_template('register.html', form_data={})
@@ -132,14 +150,15 @@ def forgot_password():
             )
             if mail_ok:
                 try:
-                    msg = Message('Password Reset - Smart Silo System',
-                                  recipients=[email])
-                    msg.html = (
-                        f'<h2>Password Reset</h2>'
-                        f'<p>Click below to reset your password (expires in 1 hour):</p>'
-                        f'<p><a href="{reset_link}">{reset_link}</a></p>'
+                    _dispatch_email(
+                        'Password Reset - Smart Silo System',
+                        [email],
+                        (
+                            f'<h2>Password Reset</h2>'
+                            f'<p>Click below to reset your password (expires in 1 hour):</p>'
+                            f'<p><a href="{reset_link}">{reset_link}</a></p>'
+                        ),
                     )
-                    mail.send(msg)
                 except Exception as exc:
                     print(f'Password reset email error: {exc}')
             else:

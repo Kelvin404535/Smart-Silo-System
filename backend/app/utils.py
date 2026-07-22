@@ -97,6 +97,16 @@ def _mail_configured():
     )
 
 
+def _message_sender():
+    """Return the configured sender address, falling back to MAIL_USERNAME."""
+    from flask import current_app
+    return (
+        current_app.config.get('MAIL_DEFAULT_SENDER') or
+        current_app.config.get('MAIL_USERNAME') or
+        None
+    )
+
+
 def _send_async(app, mail, msg):
     """Send a Flask-Mail message in a background thread."""
     with app.app_context():
@@ -114,14 +124,19 @@ def _dispatch_email(subject: str, recipients: list, html_body: str):
 
     if not _mail_configured():
         print('⚠️  Mail not configured — email skipped.')
-        return
+        return False
 
     app = current_app._get_current_object()
-    msg = Message(subject, recipients=recipients)
+    msg = Message(
+        subject,
+        recipients=recipients,
+        sender=_message_sender(),
+    )
     msg.html = html_body
     threading.Thread(
-        target=_send_async, args=(app, _mail, msg), daemon=False
+        target=_send_async, args=(app, _mail, msg), daemon=True
     ).start()
+    return True
 
 
 # ── Alert HTML template ───────────────────────────────────────────────────────
@@ -269,36 +284,30 @@ def check_and_send_alerts():
 
 def send_test_email(recipient: str):
     """
-    Send a test email synchronously.
-    Returns (True, None) on success or (False, error_str) on failure.
+    Queue a test email in a background thread.
+    Returns (True, None) immediately when the email has been queued.
     """
-    from flask import current_app
-    from app import mail as _mail
-
     if not _mail_configured():
         return False, 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.'
 
-    try:
-        msg = Message('Test Alert - Smart Silo System', recipients=[recipient])
-        msg.html = '''
-        <html><body style="font-family:Arial">
-        <div style="padding:20px;background:#f0fdf4;border-radius:10px">
-            <h2 style="color:#10b981">&#10003; Test Alert</h2>
-            <p>Your Smart Silo alert system is working correctly!</p>
-            <ul>
-                <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
-                <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
-                <li>&#128230; Low stock: less than 10% capacity</li>
-            </ul>
-            <hr><small>Smart Silo Management System</small>
-        </div></body></html>'''
-        print(f'📧 Sending test email to {recipient}...')
-        _mail.send(msg)
-        print(f'✅ Test email delivered to {recipient}')
+    html_body = '''
+    <html><body style="font-family:Arial">
+    <div style="padding:20px;background:#f0fdf4;border-radius:10px">
+        <h2 style="color:#10b981">&#10003; Test Alert</h2>
+        <p>Your Smart Silo alert system is working correctly!</p>
+        <ul>
+            <li>&#128308; Critical: moisture &gt;14% or storage &gt;90 days</li>
+            <li>&#128993; Warning: moisture &gt;12.5% or storage &gt;60 days</li>
+            <li>&#128230; Low stock: less than 10% capacity</li>
+        </ul>
+        <hr><small>Smart Silo Management System</small>
+    </div></body></html>'''
+
+    print(f'📧 Queuing test email to {recipient}...')
+    ok = _dispatch_email('Test Alert - Smart Silo System', [recipient], html_body)
+    if ok:
         return True, None
-    except Exception as exc:
-        print(f'❌ Test email error ({type(exc).__name__}): {exc}')
-        return False, str(exc)
+    return False, 'Email could not be queued.'
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────

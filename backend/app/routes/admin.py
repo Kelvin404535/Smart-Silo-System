@@ -7,7 +7,7 @@ from flask_mail import Message
 
 from app.database import get_db
 from app.decorators import login_required, admin_required
-from app.utils import hash_password, get_base_url
+from app.utils import hash_password, get_base_url, _dispatch_email
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -69,50 +69,48 @@ def approve_user(user_id):
 
     if mail_configured:
         try:
-            msg = Message(
+            email_sent = _dispatch_email(
                 'Your Smart Silo Account is Approved',
-                recipients=[pending['email']],
+                [pending['email']],
+                f'''
+                <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px;margin:0">
+                  <div style="max-width:560px;margin:auto;background:#fff;border-radius:12px;
+                              border-top:5px solid #10b981;padding:32px">
+                    <h2 style="color:#10b981;margin-top:0">Your Account is Approved!</h2>
+                    <p>Dear <strong>{pending['full_name']}</strong>,<br><br>
+                       Your Smart Silo System account has been approved.
+                       Use the credentials below to log in.</p>
+                    <div style="background:#f0fdf4;border:1px solid #a7f3d0;
+                                border-radius:10px;padding:20px;margin:20px 0">
+                      <table style="width:100%;font-size:15px">
+                        <tr>
+                          <td style="color:#6b7280;padding:6px 0;width:160px">Username</td>
+                          <td><strong>{username}</strong></td>
+                        </tr>
+                        <tr>
+                          <td style="color:#6b7280;padding:6px 0">Temporary Password</td>
+                          <td><code style="background:#e5e7eb;padding:3px 8px;
+                                           border-radius:5px">{temp_pwd}</code></td>
+                        </tr>
+                        <tr>
+                          <td style="color:#6b7280;padding:6px 0">Role</td>
+                          <td>{role.capitalize()}</td>
+                        </tr>
+                      </table>
+                    </div>
+                    <p style="color:#d97706;font-size:13px">
+                      &#9888; Change your password immediately after first login.
+                    </p>
+                    <a href="{base_url}/login"
+                       style="display:inline-block;background:#10b981;color:white;
+                              padding:12px 28px;text-decoration:none;border-radius:8px;
+                              font-weight:bold">Login to Smart Silo &rarr;</a>
+                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
+                    <small style="color:#9ca3af">Smart Silo Management System</small>
+                  </div>
+                </body></html>'''
             )
-            msg.html = f'''
-            <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px;margin:0">
-              <div style="max-width:560px;margin:auto;background:#fff;border-radius:12px;
-                          border-top:5px solid #10b981;padding:32px">
-                <h2 style="color:#10b981;margin-top:0">Your Account is Approved!</h2>
-                <p>Dear <strong>{pending['full_name']}</strong>,<br><br>
-                   Your Smart Silo System account has been approved.
-                   Use the credentials below to log in.</p>
-                <div style="background:#f0fdf4;border:1px solid #a7f3d0;
-                            border-radius:10px;padding:20px;margin:20px 0">
-                  <table style="width:100%;font-size:15px">
-                    <tr>
-                      <td style="color:#6b7280;padding:6px 0;width:160px">Username</td>
-                      <td><strong>{username}</strong></td>
-                    </tr>
-                    <tr>
-                      <td style="color:#6b7280;padding:6px 0">Temporary Password</td>
-                      <td><code style="background:#e5e7eb;padding:3px 8px;
-                                       border-radius:5px">{temp_pwd}</code></td>
-                    </tr>
-                    <tr>
-                      <td style="color:#6b7280;padding:6px 0">Role</td>
-                      <td>{role.capitalize()}</td>
-                    </tr>
-                  </table>
-                </div>
-                <p style="color:#d97706;font-size:13px">
-                  &#9888; Change your password immediately after first login.
-                </p>
-                <a href="{base_url}/login"
-                   style="display:inline-block;background:#10b981;color:white;
-                          padding:12px 28px;text-decoration:none;border-radius:8px;
-                          font-weight:bold">Login to Smart Silo &rarr;</a>
-                <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0">
-                <small style="color:#9ca3af">Smart Silo Management System</small>
-              </div>
-            </body></html>'''
-            mail.send(msg)
-            email_sent = True
-            print(f'✅ Approval email sent to {pending["email"]}')
+            print(f'✅ Approval email queued for {pending["email"]}')
         except Exception as exc:
             print(f'❌ Approval email failed: {exc}')
 
@@ -131,8 +129,6 @@ def approve_user(user_id):
 @login_required
 @admin_required
 def reject_user(user_id):
-    from app import mail
-
     conn    = get_db()
     pending = conn.execute(
         'SELECT * FROM pending_users WHERE id = ?', (user_id,)
@@ -151,20 +147,21 @@ def reject_user(user_id):
         )
         if mail_configured:
             try:
-                msg = Message('Smart Silo Registration Update',
-                              recipients=[pending['email']])
-                msg.html = '''
-                <html><body style="font-family:Arial;padding:20px">
-                  <div style="max-width:500px;margin:auto;background:#fff;
-                              border-radius:10px;border-top:5px solid #ef4444;padding:28px">
-                    <h2 style="color:#ef4444;margin-top:0">Registration Update</h2>
-                    <p>Your registration request has been declined.</p>
-                    <p>Please contact the system administrator for more information.</p>
-                    <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
-                    <small style="color:#9ca3af">Smart Silo Management System</small>
-                  </div>
-                </body></html>'''
-                mail.send(msg)
+                _dispatch_email(
+                    'Smart Silo Registration Update',
+                    [pending['email']],
+                    '''
+                    <html><body style="font-family:Arial;padding:20px">
+                      <div style="max-width:500px;margin:auto;background:#fff;
+                                  border-radius:10px;border-top:5px solid #ef4444;padding:28px">
+                        <h2 style="color:#ef4444;margin-top:0">Registration Update</h2>
+                        <p>Your registration request has been declined.</p>
+                        <p>Please contact the system administrator for more information.</p>
+                        <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+                        <small style="color:#9ca3af">Smart Silo Management System</small>
+                      </div>
+                    </body></html>'''
+                )
             except Exception as exc:
                 print(f'❌ Rejection email failed: {exc}')
 

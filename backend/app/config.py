@@ -25,7 +25,10 @@ class Config:
     MAIL_USE_SSL        = False
     MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')   # your Gmail address
     MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')   # Gmail App Password
-    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
+    MAIL_DEFAULT_SENDER = _setting(
+        'MAIL_DEFAULT_SENDER',
+        _setting('MAIL_USERNAME', ''),
+    )
 
     # ── Database ──────────────────────────────────────────────────────────────
     # PythonAnywhere: set DB_PATH env var to an absolute path under /home/<user>/
