@@ -203,9 +203,9 @@ def check_and_send_alerts():
             FROM silos s WHERE s.status = "active"
         ''').fetchall()
 
-        mail_configured = bool(current_app.config.get('SENDGRID_API_KEY'))
+        mail_configured = bool(current_app.config.get('RESEND_API_KEY'))
         if not mail_configured:
-            print('⚠️  SENDGRID_API_KEY not set — alerts saved to DB only.')
+            print('⚠️  RESEND_API_KEY not set — alerts saved to DB only.')
 
         created = 0
         for silo in silos:
