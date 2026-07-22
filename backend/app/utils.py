@@ -86,28 +86,28 @@ def calculate_risk(moisture, days_stored):
     return 'green',  f'SAFE: {moisture}% moisture, {days_stored} days'
 
 
-# ── SendGrid email helper ─────────────────────────────────────────────────────
+# ── Resend email helper ───────────────────────────────────────────────────────
 
-def _sendgrid_send(api_key: str, from_email: str, recipients: list,
-                   subject: str, html_body: str):
+def _resend_send(api_key: str, from_email: str, recipients: list,
+                 subject: str, html_body: str):
     """
-    Send an email via SendGrid HTTP API.
+    Send an email via Resend HTTP API (https://resend.com).
     Returns (True, None) on success or (False, error_str) on failure.
-    Uses only the stdlib `urllib` so no extra import is needed at runtime.
+    Uses only stdlib urllib — no extra package needed at call time.
     """
     import json
     import urllib.request
     import urllib.error
 
     payload = {
-        'personalizations': [{'to': [{'email': r} for r in recipients]}],
-        'from':    {'email': from_email},
+        'from':    from_email,
+        'to':      recipients,
         'subject': subject,
-        'content': [{'type': 'text/html', 'value': html_body}],
+        'html':    html_body,
     }
     data = json.dumps(payload).encode('utf-8')
     req  = urllib.request.Request(
-        'https://api.sendgrid.com/v3/mail/send',
+        'https://api.resend.com/emails',
         data    = data,
         headers = {
             'Authorization': f'Bearer {api_key}',
@@ -117,37 +117,35 @@ def _sendgrid_send(api_key: str, from_email: str, recipients: list,
     )
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
-            print(f'✅ SendGrid accepted email for {recipients} '
-                  f'(HTTP {resp.status})')
+            print(f'✅ Resend accepted email for {recipients} (HTTP {resp.status})')
             return True, None
     except urllib.error.HTTPError as exc:
         body = exc.read().decode('utf-8', errors='replace')
-        msg  = f'SendGrid HTTP {exc.code}: {body}'
+        msg  = f'Resend HTTP {exc.code}: {body}'
         print(f'❌ {msg}')
         return False, msg
     except Exception as exc:
-        print(f'❌ SendGrid error ({type(exc).__name__}): {exc}')
+        print(f'❌ Resend error ({type(exc).__name__}): {exc}')
         return False, str(exc)
 
 
 def _dispatch_email(recipients: list, subject: str, html_body: str):
     """
     Fire email in a non-daemon background thread so it never blocks a request.
-    Needs Flask app context to read config.
     """
     from flask import current_app
-    api_key    = current_app.config.get('SENDGRID_API_KEY', '')
+    api_key    = current_app.config.get('RESEND_API_KEY', '')
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
 
     if not api_key:
-        print('⚠️  SENDGRID_API_KEY not set — email skipped.')
+        print('⚠️  RESEND_API_KEY not set — email skipped.')
         return
     if not from_email:
         print('⚠️  MAIL_DEFAULT_SENDER not set — email skipped.')
         return
 
     def _run():
-        _sendgrid_send(api_key, from_email, recipients, subject, html_body)
+        _resend_send(api_key, from_email, recipients, subject, html_body)
 
     t = threading.Thread(target=_run, daemon=False)
     t.start()
@@ -303,15 +301,15 @@ def check_and_send_alerts():
 
 def send_test_email(recipient: str):
     """
-    Send a test email via SendGrid synchronously.
+    Send a test email via Resend synchronously.
     Returns (True, None) on success or (False, error_str) on failure.
     """
     from flask import current_app
-    api_key    = current_app.config.get('SENDGRID_API_KEY', '')
+    api_key    = current_app.config.get('RESEND_API_KEY', '')
     from_email = current_app.config.get('MAIL_DEFAULT_SENDER', '')
 
     if not api_key:
-        return False, 'SENDGRID_API_KEY is not set in Render environment variables.'
+        return False, 'RESEND_API_KEY is not set in Render environment variables.'
     if not from_email:
         return False, 'MAIL_DEFAULT_SENDER is not set in Render environment variables.'
 
@@ -328,9 +326,9 @@ def send_test_email(recipient: str):
         <hr><small>Smart Silo Management System</small>
     </div></body></html>'''
 
-    print(f'📧 Sending test email to {recipient} via SendGrid...')
-    return _sendgrid_send(api_key, from_email, [recipient],
-                          'Test Alert - Smart Silo System', html)
+    print(f'📧 Sending test email to {recipient} via Resend...')
+    return _resend_send(api_key, from_email, [recipient],
+                        'Test Alert - Smart Silo System', html)
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────

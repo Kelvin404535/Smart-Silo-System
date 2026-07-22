@@ -22,10 +22,11 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = PRODUCTION
 
-    # ── Email — SendGrid (HTTPS, works on Render free tier) ───────────────────
-    # Set SENDGRID_API_KEY and MAIL_DEFAULT_SENDER in Render environment vars.
-    SENDGRID_API_KEY    = _setting('SENDGRID_API_KEY',    '')
-    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
+    # ── Email — Resend (HTTPS, works on Render free tier) ────────────────────
+    # Set RESEND_API_KEY in Render environment vars.
+    # MAIL_DEFAULT_SENDER must be a verified sender or use onboarding@resend.dev
+    RESEND_API_KEY      = _setting('RESEND_API_KEY',      '')
+    MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', 'onboarding@resend.dev')
 
     # ── Database ──────────────────────────────────────────────────────────────
     if os.environ.get('RENDER'):
