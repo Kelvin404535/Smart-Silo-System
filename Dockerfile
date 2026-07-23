@@ -9,6 +9,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy backend application code
 COPY backend/ ./
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8080
 
-CMD gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+ENTRYPOINT ["/entrypoint.sh"]
