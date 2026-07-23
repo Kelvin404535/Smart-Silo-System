@@ -11,4 +11,4 @@ COPY backend/ ./
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "gunicorn \"run:app\" --bind 0.0.0.0:$PORT --workers 1 --timeout 120"]
+CMD gunicorn "run:app" --bind 0.0.0.0:$PORT --workers 1 --timeout 120
