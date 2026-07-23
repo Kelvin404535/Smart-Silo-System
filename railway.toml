@@ -1,6 +1,6 @@
 [build]
-builder = "RAILPACK"
-rootDirectory = "backend"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
 startCommand = "gunicorn \"run:app\" --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
