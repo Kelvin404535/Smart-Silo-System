@@ -29,39 +29,13 @@ def _setting(name, default=None):
     return os.environ.get(name, default)
 
 
-def _resolve_db_path():
-    """
-    Use DB_PATH env var if set AND its parent directory exists (or can be
-    created). This handles Render paid (disk mounted at /data) gracefully.
-    Falls back to backend/instance/ so the free tier and local dev always work.
-    """
-    configured = _setting('DB_PATH', '').strip()
-    if configured:
-        parent = os.path.dirname(configured)
-        if not parent:
-            return configured
-        if os.path.isdir(parent):
-            return configured
-        # Try to create the parent — succeeds on paid Render, fails on free tier
-        try:
-            os.makedirs(parent, exist_ok=True)
-            return configured
-        except (PermissionError, OSError):
-            print(f'⚠️  Cannot access {parent} — falling back to instance/ directory.')
-
-    return os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'instance', 'silo_management.db',
-    )
-
-
 class Config:
     # ── Security ──────────────────────────────────────────────────────────────
     SECRET_KEY = _setting('SECRET_KEY', 'local_dev_secret_change_me')
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=30)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
-    SESSION_COOKIE_SECURE   = bool(_setting('RAILWAY_ENVIRONMENT'))
+    SESSION_COOKIE_SECURE   = bool(_setting('RAILWAY_ENVIRONMENT') or _setting('RENDER'))
 
     # ── Email — Brevo (smtp-relay.brevo.com) ──────────────────────────────────
     MAIL_SERVER         = _setting('MAIL_SERVER',  'smtp-relay.brevo.com')
@@ -73,10 +47,17 @@ class Config:
     MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
     MAIL_DEBUG          = bool(_setting('MAIL_DEBUG', ''))
 
-    # ── Database ──────────────────────────────────────────────────────────────
-    # Render paid: set DB_PATH=/data/silo_management.db + mount disk at /data.
-    # Render free / local: falls back to backend/instance/silo_management.db.
-    DB_PATH = _resolve_db_path()
+    # ── Database — Turso (libsql over HTTP) ───────────────────────────────────
+    # Set TURSO_URL and TURSO_AUTH_TOKEN in Render dashboard and local .env.
+    # Falls back to a local SQLite file for development without Turso credentials.
+    TURSO_URL        = _setting('TURSO_URL', '')
+    TURSO_AUTH_TOKEN = _setting('TURSO_AUTH_TOKEN', '')
+
+    # Local SQLite fallback path (used when TURSO_URL is not set)
+    DB_PATH = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'instance', 'silo_management.db',
+    )
 
     # ── Default admin ─────────────────────────────────────────────────────────
     ADMIN_EMAIL    = _setting('ADMIN_EMAIL',    'admin@example.com')

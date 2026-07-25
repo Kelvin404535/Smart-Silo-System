@@ -8,3 +8,4 @@ blinker==1.9.0
 MarkupSafe==3.0.3
 reportlab==4.0.4
 gunicorn==21.2.0
+libsql==0.1.4

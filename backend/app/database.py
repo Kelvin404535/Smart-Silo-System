@@ -1,26 +1,54 @@
-import sqlite3
+"""
+Database connection layer.
+
+Production (Render):  connects to Turso Cloud via libsql over HTTP.
+                      Requires TURSO_URL and TURSO_AUTH_TOKEN env vars.
+Development (local):  falls back to a local SQLite file when those vars
+                      are not set, so local dev needs no Turso account.
+"""
 import os
+import sqlite3
+
 from werkzeug.security import generate_password_hash
 
 from app.config import Config
 
 
+def _use_turso() -> bool:
+    """Return True when Turso credentials are available."""
+    return bool(Config.TURSO_URL and Config.TURSO_AUTH_TOKEN)
+
+
 def get_db():
-    """Return a database connection with row factory set."""
-    db_dir = os.path.dirname(Config.DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)  # safe — path already resolved in Config
-    conn = sqlite3.connect(Config.DB_PATH)
-    conn.row_factory = sqlite3.Row
+    """
+    Return an open database connection with row_factory set to sqlite3.Row.
+    Callers must close() the connection when done.
+    """
+    if _use_turso():
+        import libsql
+        conn = libsql.connect(
+            database=Config.TURSO_URL,
+            auth_token=Config.TURSO_AUTH_TOKEN,
+        )
+        # libsql exposes the same DB-API 2.0 interface as sqlite3
+        conn.row_factory = libsql.Row
+    else:
+        db_dir = os.path.dirname(Config.DB_PATH)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
+        conn = sqlite3.connect(Config.DB_PATH)
+        conn.row_factory = sqlite3.Row
+
     conn.execute('PRAGMA foreign_keys = ON')
     return conn
 
 
 def init_db():
     """Create all tables if they don't exist, then seed a default admin."""
-    db_dir = os.path.dirname(Config.DB_PATH)
-    if db_dir:
-        os.makedirs(db_dir, exist_ok=True)  # safe — path already resolved in Config
+    if not _use_turso():
+        db_dir = os.path.dirname(Config.DB_PATH)
+        if db_dir:
+            os.makedirs(db_dir, exist_ok=True)
 
     conn = get_db()
 
@@ -127,6 +155,7 @@ def init_db():
     for col, typedef in [('deleted_at', 'TIMESTAMP'), ('deleted_by', 'INTEGER')]:
         try:
             conn.execute(f'ALTER TABLE silos ADD COLUMN {col} {typedef}')
+            conn.commit()
         except Exception:
             pass
 
@@ -145,6 +174,7 @@ def init_db():
                 Config.ADMIN_EMAIL,
             ),
         )
+        conn.commit()
         print(f'✅ Default admin created — '
               f'email: {Config.ADMIN_EMAIL}  '
               f'password: {Config.ADMIN_PASSWORD}')
@@ -152,14 +182,17 @@ def init_db():
 
     conn.commit()
     conn.close()
+    mode = 'Turso Cloud' if _use_turso() else f'SQLite ({Config.DB_PATH})'
+    print(f'✅ Database ready — {mode}')
 
 
 def rebuild_db():
     """Drop and recreate the database schema from scratch."""
-    if not os.path.exists(os.path.dirname(Config.DB_PATH)):
-        os.makedirs(os.path.dirname(Config.DB_PATH), exist_ok=True)
-    if os.path.exists(Config.DB_PATH):
-        os.remove(Config.DB_PATH)
+    if not _use_turso():
+        if not os.path.exists(os.path.dirname(Config.DB_PATH)):
+            os.makedirs(os.path.dirname(Config.DB_PATH), exist_ok=True)
+        if os.path.exists(Config.DB_PATH):
+            os.remove(Config.DB_PATH)
     init_db()
 
 
