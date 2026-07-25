@@ -293,9 +293,12 @@ def check_and_send_alerts():
 
 def send_test_email(recipient: str):
     """
-    Queue a test email in a background thread.
-    Returns (True, queued_message) immediately when the email has been queued.
+    Send a test email synchronously so errors show up immediately in logs.
+    Returns (True, success_message) or (False, error_message).
     """
+    from flask import current_app
+    from app import mail as _mail
+
     if not _mail_configured():
         return False, 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.'
 
@@ -312,11 +315,26 @@ def send_test_email(recipient: str):
         <hr><small>Smart Silo Management System</small>
     </div></body></html>'''
 
-    print(f'📧 Queuing test email to {recipient}...')
-    ok = _dispatch_email('Test Alert - Smart Silo System', [recipient], html_body)
-    if ok:
-        return True, 'Test email queued for delivery. Check your inbox shortly.'
-    return False, 'Email could not be queued.'
+    print(f'📧 Sending test email to {recipient}...')
+    print(f'📤 SMTP: {current_app.config.get("MAIL_SERVER")}:{current_app.config.get("MAIL_PORT")} '
+          f'| USER: {current_app.config.get("MAIL_USERNAME")} '
+          f'| SENDER: {current_app.config.get("MAIL_DEFAULT_SENDER")}')
+
+    try:
+        msg = Message(
+            'Test Alert - Smart Silo System',
+            recipients=[recipient],
+            sender=_message_sender(),
+        )
+        msg.html = html_body
+        _mail.send(msg)
+        print(f'✅ Email sent successfully to {recipient}')
+        return True, 'Test email sent successfully. Check your inbox.'
+    except Exception as exc:
+        import traceback
+        print(f'❌ Email error ({type(exc).__name__}): {exc}')
+        traceback.print_exc()
+        return False, f'Email failed: {type(exc).__name__}: {exc}'
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────
