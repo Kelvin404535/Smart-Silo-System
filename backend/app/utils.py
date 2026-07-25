@@ -222,7 +222,7 @@ def check_and_send_alerts():
                    (SELECT entry_date FROM grain_batches
                     WHERE silo_id = s.id ORDER BY entry_date DESC LIMIT 1
                    ) AS entry_date
-            FROM silos s WHERE s.status = "active"
+            FROM silos s WHERE s.status = 'active'
         ''').fetchall()
 
         created = 0

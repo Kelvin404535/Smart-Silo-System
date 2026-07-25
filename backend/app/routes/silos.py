@@ -38,7 +38,7 @@ def edit_silo(silo_id):
         conn.execute(
             'INSERT INTO transactions '
             '(silo_id, batch_id, transaction_type, quantity_kg, transaction_date, created_by) '
-            'SELECT ?, id, "IN", ?, ?, ? FROM grain_batches WHERE batch_number = ?',
+            "SELECT ?, id, 'IN', ?, ?, ? FROM grain_batches WHERE batch_number = ?",
             (silo_id, quantity, entry_date, session['user_id'], batch_number),
         )
         conn.commit()

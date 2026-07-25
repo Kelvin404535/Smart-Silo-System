@@ -22,7 +22,7 @@ def dashboard():
                     WHERE silo_id = s.id ORDER BY entry_date DESC LIMIT 1), 0
                ) AS moisture
         FROM silos s
-        WHERE s.status = "active"
+        WHERE s.status = 'active'
         ORDER BY s.silo_number
     ''').fetchall()
 
