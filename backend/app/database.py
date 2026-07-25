@@ -103,13 +103,13 @@ class TursoConnection:
     def _build_arg(self, v):
         """Convert a Python value to a Turso typed argument."""
         if v is None:
-            return {'type': 'null', 'value': None}
+            return {'type': 'null'}
         if isinstance(v, bool):
             return {'type': 'integer', 'value': str(int(v))}
         if isinstance(v, int):
             return {'type': 'integer', 'value': str(v)}
         if isinstance(v, float):
-            return {'type': 'real', 'value': str(v)}
+            return {'type': 'float', 'value': str(v)}
         return {'type': 'text', 'value': str(v)}
 
     def _send(self, statements: list) -> list:
@@ -132,6 +132,8 @@ class TursoConnection:
             json=payload,
             timeout=15,
         )
+        if not resp.ok:
+            print(f'❌ Turso HTTP {resp.status_code}: {resp.text[:500]}')
         resp.raise_for_status()
         data = resp.json()
 
