@@ -9,7 +9,7 @@ def get_db():
     """Return a database connection with row factory set."""
     db_dir = os.path.dirname(Config.DB_PATH)
     if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
+        os.makedirs(db_dir, exist_ok=True)  # safe — path already resolved in Config
     conn = sqlite3.connect(Config.DB_PATH)
     conn.row_factory = sqlite3.Row
     conn.execute('PRAGMA foreign_keys = ON')
@@ -20,7 +20,7 @@ def init_db():
     """Create all tables if they don't exist, then seed a default admin."""
     db_dir = os.path.dirname(Config.DB_PATH)
     if db_dir:
-        os.makedirs(db_dir, exist_ok=True)
+        os.makedirs(db_dir, exist_ok=True)  # safe — path already resolved in Config
 
     conn = get_db()
 
