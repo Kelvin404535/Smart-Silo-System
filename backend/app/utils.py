@@ -111,11 +111,19 @@ def _send_async(app, mail, msg):
     """Send a Flask-Mail message in a background thread."""
     with app.app_context():
         try:
+            print(f'📤 Sending via {app.config.get("MAIL_SERVER")}:{app.config.get("MAIL_PORT")} '
+                  f'as {app.config.get("MAIL_USERNAME")} → {msg.recipients}')
             mail.send(msg)
             print(f'✅ Email sent to {msg.recipients}')
         except Exception as exc:
+            import traceback
             print(f'❌ Email error ({type(exc).__name__}): {exc}')
-            print(f'❌ Mail sender: {msg.sender}; recipients: {msg.recipients}')
+            print(f'❌ Mail config — server: {app.config.get("MAIL_SERVER")}, '
+                  f'port: {app.config.get("MAIL_PORT")}, '
+                  f'tls: {app.config.get("MAIL_USE_TLS")}, '
+                  f'user: {app.config.get("MAIL_USERNAME")}, '
+                  f'sender: {msg.sender}, recipients: {msg.recipients}')
+            traceback.print_exc()
 
 
 def _dispatch_email(subject: str, recipients: list, html_body: str):
