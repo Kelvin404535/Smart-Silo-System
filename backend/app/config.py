@@ -37,13 +37,15 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE   = bool(_setting('RAILWAY_ENVIRONMENT') or _setting('RENDER'))
 
-    # ── Email — Brevo (smtp-relay.brevo.com) ──────────────────────────────────
+    # ── Email — Brevo HTTP API (port 443, works on Render free tier) ─────────────
+    # BREVO_API_KEY: found in Brevo dashboard → Account → SMTP & API → API Keys
+    # MAIL_DEFAULT_SENDER: verified sender address in Brevo
     MAIL_SERVER         = _setting('MAIL_SERVER',  'smtp-relay.brevo.com')
     MAIL_PORT           = int(_setting('MAIL_PORT', '587'))
     MAIL_USE_TLS        = True
     MAIL_USE_SSL        = False
     MAIL_USERNAME       = _setting('MAIL_USERNAME',  '')
-    MAIL_PASSWORD       = _setting('MAIL_PASSWORD',  '')
+    MAIL_PASSWORD       = _setting('BREVO_API_KEY', _setting('MAIL_PASSWORD', ''))
     MAIL_DEFAULT_SENDER = _setting('MAIL_DEFAULT_SENDER', '')
     MAIL_DEBUG          = bool(_setting('MAIL_DEBUG', ''))
 

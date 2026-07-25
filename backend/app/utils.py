@@ -89,16 +89,13 @@ def calculate_risk(moisture, days_stored):
 # ── Email helpers ─────────────────────────────────────────────────────────────
 
 def _mail_configured():
-    """Return True if Gmail credentials are set in config."""
+    """Return True if Brevo API key is set in config."""
     from flask import current_app
-    return bool(
-        current_app.config.get('MAIL_USERNAME') and
-        current_app.config.get('MAIL_PASSWORD')
-    )
+    return bool(current_app.config.get('MAIL_PASSWORD'))
 
 
 def _message_sender():
-    """Return the configured sender address, falling back to MAIL_USERNAME."""
+    """Return the configured sender address."""
     from flask import current_app
     return (
         current_app.config.get('MAIL_DEFAULT_SENDER') or
@@ -107,41 +104,54 @@ def _message_sender():
     )
 
 
-def _send_async(app, mail, msg):
-    """Send a Flask-Mail message in a background thread."""
-    import traceback
-    with app.app_context():
-        try:
-            print(f'📤 Sending via {app.config.get("MAIL_SERVER")}:{app.config.get("MAIL_PORT")} '
-                  f'| user: {app.config.get("MAIL_USERNAME")} '
-                  f'| to: {msg.recipients}')
-            mail.send(msg)
-            print(f'✅ Email sent to {msg.recipients}')
-        except Exception as exc:
-            print(f'❌ Email error ({type(exc).__name__}): {exc}')
-            traceback.print_exc()
+def _send_via_brevo_api(subject: str, recipients: list, html_body: str, sender: str, api_key: str):
+    """Send email via Brevo transactional HTTP API (port 443 — works on Render free tier)."""
+    import requests as _requests
+    payload = {
+        'sender': {'email': sender},
+        'to': [{'email': r} for r in recipients],
+        'subject': subject,
+        'htmlContent': html_body,
+    }
+    resp = _requests.post(
+        'https://api.brevo.com/v3/smtp/email',
+        headers={
+            'api-key': api_key,
+            'Content-Type': 'application/json',
+        },
+        json=payload,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return resp.json()
 
 
 def _dispatch_email(subject: str, recipients: list, html_body: str):
-    """Build and send an email in a background thread."""
+    """Send an email via Brevo HTTP API in a background thread."""
     from flask import current_app
-    from app import mail as _mail
 
     if not _mail_configured():
         print('⚠️  Mail not configured — email skipped.')
         return False
 
-    app = current_app._get_current_object()
-    msg = Message(
-        subject,
-        recipients=recipients,
-        sender=_message_sender(),
-    )
-    msg.html = html_body
-    t = threading.Thread(target=_send_async, args=(app, _mail, msg), daemon=False)
+    app      = current_app._get_current_object()
+    api_key  = app.config.get('MAIL_PASSWORD', '')
+    sender   = app.config.get('MAIL_DEFAULT_SENDER') or app.config.get('MAIL_USERNAME', '')
+
+    def _send():
+        with app.app_context():
+            try:
+                print(f'📤 Sending via Brevo API | to: {recipients}')
+                _send_via_brevo_api(subject, recipients, html_body, sender, api_key)
+                print(f'✅ Email sent to {recipients}')
+            except Exception as exc:
+                import traceback
+                print(f'❌ Email error ({type(exc).__name__}): {exc}')
+                traceback.print_exc()
+
+    t = threading.Thread(target=_send, daemon=False)
     t.start()
-    # Give the thread up to 25s to finish before gunicorn worker moves on
-    t.join(timeout=25)
+    t.join(timeout=20)
     return True
 
 
