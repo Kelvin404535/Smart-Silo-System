@@ -32,6 +32,30 @@ def _turso_url() -> str:
     return url.rstrip('/')
 
 
+def _cast_value(cell: dict):
+    """
+    Convert a Turso API cell dict to a native Python type.
+    Turso returns: {"type": "integer"|"real"|"text"|"null", "value": "..."}
+    """
+    if cell is None:
+        return None
+    t = cell.get('type', 'text')
+    v = cell.get('value')
+    if t == 'null' or v is None:
+        return None
+    if t == 'integer':
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return v
+    if t == 'real':
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+    return v  # text, blob — return as-is
+
+
 class TursoRow:
     """Mimics sqlite3.Row so existing code works unchanged."""
     def __init__(self, columns, values):
@@ -41,7 +65,10 @@ class TursoRow:
     def __getitem__(self, key):
         if isinstance(key, int):
             return self._values[key]
-        return self._values[self._columns.index(key.lower())]
+        try:
+            return self._values[self._columns.index(key.lower())]
+        except ValueError:
+            raise KeyError(f'Column {key!r} not found. Available: {self._columns}')
 
     def __iter__(self):
         return iter(self._values)
@@ -52,14 +79,13 @@ class TursoRow:
     def get(self, key, default=None):
         try:
             return self[key]
-        except (ValueError, IndexError):
+        except (KeyError, IndexError):
             return default
 
 
 class TursoConnection:
     """
     Minimal DB-API 2.0-like wrapper around the Turso HTTP API.
-    Supports execute(), executescript(), fetchone(), fetchall(), commit(), close().
     """
 
     def __init__(self):
@@ -68,21 +94,33 @@ class TursoConnection:
             'Authorization': f'Bearer {Config.TURSO_AUTH_TOKEN}',
             'Content-Type': 'application/json',
         }
-        self._pending_stmts = []   # buffered by executescript / execute
         self._last_rows = []
         self._last_columns = []
+        self.total_changes = 0
 
     # ── internal ──────────────────────────────────────────────────────────────
 
+    def _build_arg(self, v):
+        """Convert a Python value to a Turso typed argument."""
+        if v is None:
+            return {'type': 'null', 'value': None}
+        if isinstance(v, bool):
+            return {'type': 'integer', 'value': str(int(v))}
+        if isinstance(v, int):
+            return {'type': 'integer', 'value': str(v)}
+        if isinstance(v, float):
+            return {'type': 'real', 'value': str(v)}
+        return {'type': 'text', 'value': str(v)}
+
     def _send(self, statements: list) -> list:
-        """Send a list of {type, stmt, args} dicts and return result sets."""
+        """Send statements to Turso pipeline API and return result sets."""
         payload = {
             'requests': [
                 {
                     'type': 'execute',
                     'stmt': {
                         'sql': s['sql'],
-                        'args': [{'type': 'text', 'value': str(v)} for v in s.get('args', [])],
+                        'args': [self._build_arg(v) for v in s.get('args', [])],
                     },
                 }
                 for s in statements
@@ -96,15 +134,19 @@ class TursoConnection:
         )
         resp.raise_for_status()
         data = resp.json()
+
         results = []
         for item in data.get('results', []):
+            if item.get('type') == 'error':
+                raise Exception(item.get('error', {}).get('message', 'Turso error'))
             if item.get('type') == 'ok':
                 res = item.get('response', {}).get('result', {})
                 cols = [c['name'] for c in res.get('cols', [])]
                 rows = [
-                    TursoRow(cols, [cell.get('value') for cell in row])
+                    TursoRow(cols, [_cast_value(cell) for cell in row])
                     for row in res.get('rows', [])
                 ]
+                self.total_changes += res.get('affected_row_count', 0)
                 results.append((cols, rows))
         return results
 
@@ -134,7 +176,7 @@ class TursoConnection:
         return self._last_rows[0] if self._last_rows else None
 
     def fetchall(self):
-        return self._last_rows
+        return list(self._last_rows)
 
     def commit(self):
         pass   # Turso auto-commits each HTTP request
@@ -142,7 +184,6 @@ class TursoConnection:
     def close(self):
         pass   # No persistent connection to close
 
-    # Allow use as context manager
     def __enter__(self):
         return self
 

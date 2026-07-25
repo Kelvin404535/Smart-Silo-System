@@ -122,8 +122,9 @@ def remove_stock():
     conn.execute(
         "INSERT INTO transactions "
         "(silo_id, transaction_type, quantity_kg, transaction_date, notes, created_by) "
-        "VALUES (?, 'OUT', ?, date('now'), ?, ?)",
+        "VALUES (?, 'OUT', ?, ?, ?, ?)",
         (data['silo_id'], data['quantity'],
+         datetime.now().strftime('%Y-%m-%d'),
          data.get('reason', ''), session['user_id']),
     )
     conn.commit()
