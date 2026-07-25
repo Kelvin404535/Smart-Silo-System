@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from flask import Blueprint, render_template, session, jsonify
 
 from app.database import get_db
@@ -38,9 +40,9 @@ def soft_delete_silo(silo_id):
         return jsonify({'success': False,
                         'error': 'Cannot delete silo with stock.'}), 400
     conn.execute(
-        "UPDATE silos SET status='deleted', deleted_at=datetime('now'), "
+        "UPDATE silos SET status='deleted', deleted_at=?, "
         'deleted_by=? WHERE id=?',
-        (session['user_id'], silo_id),
+        (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), session['user_id'], silo_id),
     )
     conn.commit()
     conn.close()
@@ -112,9 +114,10 @@ def empty_recycle_bin():
 @admin_required
 def auto_delete_old():
     conn = get_db()
+    cutoff = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
     old  = conn.execute(
-        "SELECT id FROM silos WHERE status = 'deleted' "
-        "AND deleted_at < datetime('now', '-30 days')"
+        "SELECT id FROM silos WHERE status = 'deleted' AND deleted_at < ?",
+        (cutoff,),
     ).fetchall()
     for silo in old:
         for tbl in ('grain_batches', 'transactions', 'alerts'):

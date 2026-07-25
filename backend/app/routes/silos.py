@@ -56,10 +56,17 @@ def edit_silo(silo_id):
 @login_required
 @admin_required
 def add_silo():
-    data = request.get_json() or {}
+    # Accept both JSON and form data
+    data = request.get_json(silent=True) or {}
+    if not data:
+        data = request.form.to_dict()
+
     silo_number = (data.get('silo_number') or '').strip()
-    location = (data.get('location') or '').strip()
-    capacity = data.get('capacity_kg')
+    location    = (data.get('location') or '').strip()
+    capacity    = data.get('capacity_kg')
+
+    print(f'📥 add_silo called — silo_number={silo_number!r} location={location!r} capacity={capacity!r}')
+    print(f'📥 Content-Type: {request.content_type} | data: {data}')
 
     if not silo_number:
         return jsonify({'success': False, 'error': 'Silo number is required.'}), 400
@@ -80,8 +87,14 @@ def add_silo():
         )
         conn.commit()
     except Exception as exc:
-        conn.close()
-        return jsonify({'success': False, 'error': 'Unable to add silo. It may already exist.'}), 400
+        import traceback
+        traceback.print_exc()
+        print(f'❌ Add silo DB error: {exc}')
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return jsonify({'success': False, 'error': f'Unable to add silo: {exc}'}), 400
     finally:
         try:
             conn.close()

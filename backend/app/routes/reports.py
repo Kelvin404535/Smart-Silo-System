@@ -4,11 +4,6 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, send_file
 
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib import colors
-
 from app.database import get_db
 from app.decorators import login_required
 from app.utils import calculate_risk
@@ -26,11 +21,14 @@ def reports():
 @login_required
 def analytics():
     conn   = get_db()
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     trends = conn.execute(
         "SELECT date(entry_date) AS date, AVG(moisture) AS avg_moisture "
         "FROM grain_batches "
-        "WHERE entry_date > date('now', '-30 days') "
-        "GROUP BY date(entry_date) ORDER BY date"
+        "WHERE entry_date > ? "
+        "GROUP BY date(entry_date) ORDER BY date",
+        (cutoff,),
     ).fetchall()
 
     silos       = conn.execute(
@@ -135,6 +133,11 @@ def quality_alerts():
 @reports_bp.route('/export_pdf')
 @login_required
 def export_pdf():
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
+
     conn  = get_db()
     silos = conn.execute(
         "SELECT * FROM silos WHERE status = 'active'"
