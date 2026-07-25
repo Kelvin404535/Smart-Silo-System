@@ -101,15 +101,16 @@ class TursoConnection:
     # ── internal ──────────────────────────────────────────────────────────────
 
     def _build_arg(self, v):
-        """Convert a Python value to a Turso typed argument."""
+        """Convert a Python value to a Turso typed argument.
+        Turso HTTP API requires value to always be a string."""
         if v is None:
             return {'type': 'null'}
         if isinstance(v, bool):
-            return {'type': 'integer', 'value': int(v)}
+            return {'type': 'integer', 'value': str(int(v))}
         if isinstance(v, int):
-            return {'type': 'integer', 'value': v}
+            return {'type': 'integer', 'value': str(v)}
         if isinstance(v, float):
-            return {'type': 'float', 'value': v}
+            return {'type': 'float', 'value': str(v)}
         return {'type': 'text', 'value': str(v)}
 
     def _send(self, statements: list) -> list:

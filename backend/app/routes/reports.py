@@ -71,11 +71,20 @@ def inventory_flow():
         "THEN quantity_kg ELSE 0 END), 0) AS outgoing "
         "FROM transactions"
     ).fetchone()
+    # Cast to float to handle Turso returning strings
+    totals = {
+        'incoming': float(totals['incoming'] or 0),
+        'outgoing': float(totals['outgoing'] or 0),
+    }
     stock = conn.execute(
         "SELECT COALESCE(SUM(current_stock_kg), 0) AS current_stock, "
         "COALESCE(SUM(capacity_kg), 0) AS capacity "
         "FROM silos WHERE status = 'active'"
     ).fetchone()
+    stock = {
+        'current_stock': float(stock['current_stock'] or 0),
+        'capacity': float(stock['capacity'] or 0),
+    }
     by_grain = conn.execute(
         "SELECT COALESCE(grain_type, 'Unspecified') AS grain_type, "
         "COALESCE(SUM(current_stock_kg), 0) AS stock "
