@@ -293,8 +293,8 @@ def check_and_send_alerts():
 
 def send_test_email(recipient: str):
     """
-    Send a test email synchronously so errors show up immediately in logs.
-    Returns (True, success_message) or (False, error_message).
+    Send a test email. Tries synchronously first to capture errors in logs,
+    but catches all exceptions so the app never returns a 502.
     """
     from flask import current_app
     from app import mail as _mail
@@ -334,7 +334,7 @@ def send_test_email(recipient: str):
         import traceback
         print(f'❌ Email error ({type(exc).__name__}): {exc}')
         traceback.print_exc()
-        return False, f'Email failed: {type(exc).__name__}: {exc}'
+        return False, f'Email failed ({type(exc).__name__}): {exc}'
 
 
 # ── URL helper ────────────────────────────────────────────────────────────────

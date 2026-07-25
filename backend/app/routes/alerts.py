@@ -50,7 +50,16 @@ def send_test_alert():
             error='No email saved. Enter your email above and click Save Settings first.',
         ))
 
-    ok, err = send_test_email(user['email'])
+    try:
+        ok, err = send_test_email(user['email'])
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return redirect(url_for(
+            'alerts.alert_settings',
+            error=f'Unexpected error: {type(exc).__name__}: {exc}',
+        ))
+
     if ok:
         return redirect(url_for(
             'alerts.alert_settings',
