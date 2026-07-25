@@ -16,20 +16,20 @@ services:
         value: /data/silo_management.db
       - key: SECRET_KEY
         generateValue: true
-      - key: MAIL_USERNAME
-        sync: false          # your Gmail address
-      - key: MAIL_PASSWORD
-        sync: false          # 16-char Gmail App Password
-      - key: MAIL_DEFAULT_SENDER
-        sync: false          # same as MAIL_USERNAME
       - key: MAIL_SERVER
-        sync: false          # SMTP server host
+        sync: false          # smtp-relay.brevo.com
       - key: MAIL_PORT
-        sync: false          # SMTP server port
+        sync: false          # 587
       - key: MAIL_USE_TLS
-        sync: false          # enable TLS for SMTP
+        sync: false          # True
       - key: MAIL_USE_SSL
-        sync: false          # enable SSL for SMTP
+        sync: false          # False
+      - key: MAIL_USERNAME
+        sync: false          # Brevo SMTP login (e.g. xxxx@smtp-brevo.com)
+      - key: MAIL_PASSWORD
+        sync: false          # Brevo SMTP key
+      - key: MAIL_DEFAULT_SENDER
+        sync: false          # verified sender address in Brevo
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
