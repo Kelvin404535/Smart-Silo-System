@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 from flask import Blueprint, render_template, session
 
@@ -7,6 +7,57 @@ from app.decorators import login_required
 from app.utils import calculate_risk, check_and_send_alerts
 
 dashboard_bp = Blueprint('dashboard', __name__)
+
+
+def _get_inspection_stats(conn):
+    """Return inspection stats for the dashboard widget."""
+    today = date.today().isoformat()
+
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM inspections WHERE inspection_date = ?", (today,)
+    ).fetchone()
+    today_count = row['c'] if row else 0
+
+    latest_rows = conn.execute('''
+        SELECT s.id, s.silo_number, s.location,
+               i.inspection_date, i.moisture, i.temperature, i.pest_present
+        FROM silos s
+        LEFT JOIN inspections i ON i.id = (
+            SELECT id FROM inspections
+            WHERE silo_id = s.id
+            ORDER BY inspection_date DESC, created_at DESC
+            LIMIT 1
+        )
+        WHERE s.status = 'active'
+        ORDER BY s.silo_number
+    ''').fetchall()
+
+    latest_per_silo = [dict(r) for r in latest_rows]
+
+    overdue = []
+    for r in latest_rows:
+        last_date = r['inspection_date']
+        if last_date is None:
+            days_since = None
+        else:
+            try:
+                delta = date.today() - datetime.strptime(last_date, '%Y-%m-%d').date()
+                days_since = delta.days
+            except Exception:
+                days_since = None
+        if days_since is None or days_since > 7:
+            overdue.append({
+                'id':          r['id'],
+                'silo_number': r['silo_number'],
+                'location':    r['location'] or '—',
+                'days_since':  days_since,
+            })
+
+    return {
+        'today_count':     today_count,
+        'overdue_silos':   overdue,
+        'latest_per_silo': latest_per_silo,
+    }
 
 
 @dashboard_bp.route('/dashboard')
@@ -70,6 +121,8 @@ def dashboard():
             "SELECT COUNT(*) AS c FROM silos WHERE status = 'deleted'"
         ).fetchone()['c']
     )
+
+    inspection_stats = _get_inspection_stats(conn)
     conn.close()
 
     return render_template(
@@ -83,4 +136,5 @@ def dashboard():
         username=session['username'],
         role=session['role'],
         recycle_count=recycle_count,
+        inspection_stats=inspection_stats,
     )

@@ -320,6 +320,23 @@ def init_db():
             token      TEXT,
             expiry     TIMESTAMP,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS inspections (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            silo_id         INTEGER NOT NULL,
+            inspection_date DATE NOT NULL,
+            temperature     REAL,
+            moisture        REAL,
+            pest_present    INTEGER DEFAULT 0,
+            aeration_done   INTEGER DEFAULT 0,
+            odour_normal    INTEGER DEFAULT 1,
+            stock_kg        REAL,
+            notes           TEXT,
+            created_by      INTEGER,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (silo_id)    REFERENCES silos(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
         )
     ''')
 
@@ -330,6 +347,27 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+    # Migrate: create inspections table if it doesn't exist (older DBs)
+    conn.executescript('''
+        CREATE TABLE IF NOT EXISTS inspections (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            silo_id         INTEGER NOT NULL,
+            inspection_date DATE NOT NULL,
+            temperature     REAL,
+            moisture        REAL,
+            pest_present    INTEGER DEFAULT 0,
+            aeration_done   INTEGER DEFAULT 0,
+            odour_normal    INTEGER DEFAULT 1,
+            stock_kg        REAL,
+            notes           TEXT,
+            created_by      INTEGER,
+            created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (silo_id)    REFERENCES silos(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        )
+    ''')
+    conn.commit()
 
     # Seed default admin if none exists
     admin = conn.execute(

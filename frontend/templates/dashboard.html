@@ -488,6 +488,47 @@
             .stats-grid { grid-template-columns: 1fr; }
             .modal-content { padding: 20px 16px; }
         }
+
+        /* ── Inspection Widget ── */
+        .inspection-widget {
+            background: rgba(255,255,255,0.13);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 22px 24px;
+            margin-bottom: 28px;
+        }
+        body.light .inspection-widget { background: white; border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+        .iw-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+        .iw-title { font-size: 17px; font-weight: 700; color: white; }
+        body.light .iw-title { color: #1e293b; }
+        .iw-subtitle { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+        body.light .iw-subtitle { color: #94a3b8; }
+        .btn-insp { background: linear-gradient(135deg,#10b981,#059669); color: white; border: none; border-radius: 10px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; white-space: nowrap; }
+        .btn-insp:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(16,185,129,0.4); }
+        .iw-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
+        .iw-stat { background: rgba(255,255,255,0.09); border-radius: 13px; padding: 13px 10px; text-align: center; border: 1px solid rgba(255,255,255,0.13); transition: all 0.3s; }
+        .iw-stat:hover { transform: translateY(-2px); background: rgba(255,255,255,0.15); }
+        body.light .iw-stat { background: #f8fafc; border-color: #e2e8f0; }
+        .iw-stat-icon { font-size: 20px; margin-bottom: 4px; }
+        .iw-stat-val { font-size: 24px; font-weight: 800; color: white; line-height: 1.1; }
+        body.light .iw-stat-val { color: #1e293b; }
+        .iw-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+        body.light .iw-stat-lbl { color: #64748b; }
+        .iw-stat.s-today { border-top: 3px solid #10b981; }
+        .iw-stat.s-overdue { border-top: 3px solid #ef4444; }
+        .iw-stat.s-ok { border-top: 3px solid #3b82f6; }
+        .iw-overdue-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.4); margin-bottom: 9px; }
+        body.light .iw-overdue-label { color: #94a3b8; }
+        .iw-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .iw-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.35); border-radius: 30px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: #fca5a5; text-decoration: none; transition: all 0.2s; }
+        .iw-chip:hover { background: rgba(239,68,68,0.28); color: white; transform: scale(1.04); }
+        body.light .iw-chip { color: #dc2626; background: #fef2f2; border-color: #fca5a5; }
+        .iw-chip-days { background: rgba(239,68,68,0.38); border-radius: 20px; padding: 1px 6px; font-size: 10px; }
+        body.light .iw-chip-days { background: #fca5a5; color: #7f1d1d; }
+        .iw-all-good { display: inline-flex; align-items: center; gap: 7px; background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; padding: 10px 15px; font-size: 13px; font-weight: 600; color: #6ee7b7; }
+        body.light .iw-all-good { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+        @media (max-width: 480px) { .iw-stats { grid-template-columns: 1fr 1fr; } }
     </style>
 </head>
 <body>
@@ -499,6 +540,7 @@
         <div class="nav-links" id="navLinks">
             <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
             <a href="{{ url_for('farmers.farmers') }}">Farmers</a>
+            <a href="{{ url_for('inspections.inspection_form') }}">🔍 Inspections</a>
             <a href="{{ url_for('transactions.transactions') }}">Transactions</a>
             <a href="{{ url_for('reports.reports') }}">Reports</a>
             <a href="{{ url_for('reports.analytics') }}">Analytics</a>
@@ -557,7 +599,51 @@
                 <div class="stat-value">{{ green_count }}</div>
             </div>
         </div>
-        
+
+        <!-- ── Inspection Widget ── -->
+        {% if inspection_stats is defined %}
+        <div class="inspection-widget">
+            <div class="iw-header">
+                <div>
+                    <div class="iw-title">🔍 Silo Inspections</div>
+                    <div class="iw-subtitle">Daily &amp; weekly condition monitoring</div>
+                </div>
+                <a href="{{ url_for('inspections.inspection_form') }}" class="btn-insp">+ Record Inspection</a>
+            </div>
+            <div class="iw-stats">
+                <div class="iw-stat s-today">
+                    <div class="iw-stat-icon">📋</div>
+                    <div class="iw-stat-val">{{ inspection_stats.today_count }}</div>
+                    <div class="iw-stat-lbl">Inspections Today</div>
+                </div>
+                <div class="iw-stat s-overdue">
+                    <div class="iw-stat-icon">⚠️</div>
+                    <div class="iw-stat-val">{{ inspection_stats.overdue_silos | length }}</div>
+                    <div class="iw-stat-lbl">Overdue (&gt;7 days)</div>
+                </div>
+                <div class="iw-stat s-ok">
+                    <div class="iw-stat-icon">✅</div>
+                    <div class="iw-stat-val">{{ inspection_stats.latest_per_silo | length - inspection_stats.overdue_silos | length }}</div>
+                    <div class="iw-stat-lbl">Inspected This Week</div>
+                </div>
+            </div>
+            <div class="iw-overdue-label">⏰ Silos needing inspection</div>
+            <div class="iw-chips">
+                {% if inspection_stats.overdue_silos %}
+                    {% for s in inspection_stats.overdue_silos %}
+                    <a href="{{ url_for('inspections.inspection_form', silo_id=s.id) }}" class="iw-chip">
+                        🏭 {{ s.silo_number }}
+                        {% if s.location and s.location != '—' %}<span style="opacity:0.7">{{ s.location }}</span>{% endif %}
+                        <span class="iw-chip-days">{% if s.days_since is none %}Never{% else %}{{ s.days_since }}d ago{% endif %}</span>
+                    </a>
+                    {% endfor %}
+                {% else %}
+                    <span class="iw-all-good">🟢 All silos inspected within the last 7 days</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="silo-grid">
             {% for silo in silos %}
             <div class="silo-card {{ silo.color }}">

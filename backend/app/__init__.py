@@ -39,10 +39,11 @@ def create_app():
     from app.routes.alerts       import alerts_bp
     from app.routes.admin        import admin_bp
     from app.routes.recycle_bin  import recycle_bin_bp
+    from app.routes.inspections  import inspections_bp
 
     for bp in (auth_bp, dashboard_bp, silos_bp, farmers_bp,
                transactions_bp, users_bp, reports_bp, alerts_bp,
-               admin_bp, recycle_bin_bp):
+               admin_bp, recycle_bin_bp, inspections_bp):
         app.register_blueprint(bp)
 
     from flask import send_file as _send_file

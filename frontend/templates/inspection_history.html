@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspection History – Silo {{ silo.silo_number }} - Smart Silo System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-image: url('https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=1600');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding-top: 70px;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.65);
+            z-index: -1;
+            transition: all 0.3s;
+        }
+        body.light::before { background: rgba(255,255,255,0.82); }
+
+        /* ── Navbar ── */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            background: rgba(44,62,80,0.9);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 14px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        body.light .navbar { background: rgba(255,255,255,0.95); color: #1e293b; border-bottom-color: rgba(0,0,0,0.1); }
+        .nav-brand { font-size: 20px; font-weight: bold; }
+
+        .hamburger {
+            display: none;
+            background: none; border: none; cursor: pointer;
+            flex-direction: column; gap: 5px; padding: 4px;
+        }
+        .hamburger span { display: block; width: 24px; height: 2px; background: white; border-radius: 2px; transition: all 0.3s; }
+        body.light .hamburger span { background: #1e293b; }
+
+        .nav-links { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+        .nav-links a { color: white; text-decoration: none; font-size: 14px; transition: all 0.3s; }
+        .nav-links a:hover { text-decoration: underline; transform: translateY(-1px); }
+        body.light .nav-links a { color: #1e293b; }
+        .nav-links a.active-link { color: #10b981; font-weight: 700; border-bottom: 2px solid #10b981; padding-bottom: 2px; }
+
+        .dropdown { position: relative; display: inline-block; }
+        .dropbtn { background: #3b82f6; color: white; padding: 7px 18px; border-radius: 40px; cursor: pointer; border: none; font-size: 13px; transition: all 0.3s; }
+        .dropbtn:hover { background: #2563eb; transform: translateY(-2px); }
+        .dropdown-content { display: none; position: absolute; right: 0; top: 100%; margin-top: 5px; background: #2c3e50; min-width: 180px; border-radius: 12px; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+        .dropdown-content.show { display: block; }
+        .dropdown-content a { color: white; padding: 11px 16px; text-decoration: none; display: block; border-radius: 8px; font-size: 13px; }
+        .dropdown-content a:hover { background: #3b82f6; }
+        .dropdown-content .logout { color: #ff6b6b; }
+        .dropdown-content .logout:hover { background: #dc2626; color: white; }
+
+        .theme-toggle { background: rgba(255,255,255,0.18); border: none; border-radius: 30px; padding: 6px 13px; cursor: pointer; color: white; font-size: 13px; transition: all 0.3s; }
+        .theme-toggle:hover { background: rgba(255,255,255,0.32); }
+        body.light .theme-toggle { background: #e2e8f0; color: #1e293b; }
+
+        /* ── Layout ── */
+        .container { flex: 1; max-width: 1200px; margin: 30px auto; padding: 0 20px 50px; width: 100%; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .page-title { font-size: 26px; font-weight: 700; color: white; text-shadow: 2px 2px 6px rgba(0,0,0,0.4); }
+        body.light .page-title { color: #1e293b; text-shadow: none; }
+
+        .page-subtitle { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+        body.light .page-subtitle { color: #64748b; }
+
+        .btn-new-inspection {
+            background: linear-gradient(135deg,#10b981,#059669);
+            color: white; border: none; border-radius: 13px;
+            padding: 11px 22px; font-size: 14px; font-weight: 700;
+            cursor: pointer; text-decoration: none; display: inline-flex;
+            align-items: center; gap: 8px; transition: all 0.3s; white-space: nowrap;
+        }
+        .btn-new-inspection:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+
+        /* ── Flash / error ── */
+        .flash-success { background: rgba(16,185,129,0.18); border: 1px solid rgba(16,185,129,0.45); border-left: 4px solid #10b981; border-radius: 12px; padding: 13px 18px; margin-bottom: 20px; color: white; font-size: 14px; }
+        body.light .flash-success { color: #064e3b; background: #f0fdf4; border-color: #6ee7b7; border-left-color: #10b981; }
+
+        /* ── Stats row ── */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 16px; margin-bottom: 28px; }
+
+        .stat-card {
+            background: rgba(255,255,255,0.13);
+            backdrop-filter: blur(12px);
+            border-radius: 16px; padding: 18px 16px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s;
+        }
+        .stat-card:hover { transform: translateY(-3px); background: rgba(255,255,255,0.2); }
+        body.light .stat-card { background: white; border-color: #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        .stat-icon  { font-size: 28px; margin-bottom: 6px; }
+        .stat-value { font-size: 28px; font-weight: 800; color: white; line-height: 1.1; }
+        body.light .stat-value { color: #1e293b; }
+        .stat-label { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 5px; font-weight: 500; }
+        body.light .stat-label { color: #64748b; }
+
+        .stat-card.total  { border-top: 3px solid #3b82f6; }
+        .stat-card.latest { border-top: 3px solid #10b981; }
+        .stat-card.pest   { border-top: 3px solid #ef4444; }
+        .stat-card.aerate { border-top: 3px solid #8b5cf6; }
+
+        /* ── Silo switcher ── */
+        .silo-switcher {
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        body.light .silo-switcher { background: white; border-color: #e2e8f0; }
+        .silo-switcher label { color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 600; white-space: nowrap; }
+        body.light .silo-switcher label { color: #374151; }
+        .silo-switcher select {
+            flex: 1; min-width: 180px;
+            padding: 9px 13px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 10px; color: white; font-size: 14px; outline: none;
+        }
+        body.light .silo-switcher select { background: #f8fafc; border-color: #cbd5e1; color: #1e293b; }
+        .silo-switcher select option { background: #1e293b; }
+        body.light .silo-switcher select option { background: white; color: #1e293b; }
+
+        /* ── Table ── */
+        .table-wrapper {
+            background: rgba(255,255,255,0.13);
+            backdrop-filter: blur(16px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            overflow-x: auto;
+        }
+        body.light .table-wrapper { background: white; border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+
+        table { width: 100%; border-collapse: collapse; border-radius: 14px; overflow: hidden; }
+
+        thead th {
+            background: rgba(15,23,42,0.85);
+            color: white; padding: 13px 14px;
+            text-align: left; font-size: 12px;
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+            white-space: nowrap;
+        }
+        body.light thead th { background: #1e293b; }
+
+        tbody td {
+            background: rgba(255,255,255,0.92);
+            color: #1e293b; padding: 11px 14px;
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover td { background: rgba(255,255,255,1); }
+        tbody tr:last-child td { border-bottom: none; }
+
+        /* ── Badges ── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .badge-red    { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+        .badge-green  { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+        .badge-yellow { background: #fffbeb; color: #d97706; border: 1px solid #fcd34d; }
+        .badge-gray   { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+        .badge-purple { background: #faf5ff; color: #7c3aed; border: 1px solid #c4b5fd; }
+
+        /* ── Moisture cell coloring ── */
+        .moist-safe { color: #16a34a; font-weight: 700; }
+        .moist-warn { color: #d97706; font-weight: 700; }
+        .moist-crit { color: #dc2626; font-weight: 700; }
+
+        /* ── Delete btn ── */
+        .btn-delete-row {
+            background: none; border: none;
+            color: #ef4444; cursor: pointer;
+            font-size: 18px; transition: all 0.2s; padding: 2px 4px; border-radius: 6px;
+        }
+        .btn-delete-row:hover { background: #fef2f2; transform: scale(1.15); }
+
+        /* ── Empty state ── */
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.5);
+        }
+        body.light .empty-state { color: #94a3b8; }
+        .empty-state .empty-icon { font-size: 64px; margin-bottom: 16px; }
+        .empty-state p { font-size: 16px; margin-bottom: 20px; }
+
+        /* ── Footer ── */
+        .footer { background: rgba(15,23,42,0.9); backdrop-filter: blur(10px); color: rgba(255,255,255,0.6); text-align: center; padding: 18px; font-size: 13px; border-top: 1px solid rgba(255,255,255,0.08); margin-top: auto; }
+        body.light .footer { background: rgba(255,255,255,0.95); color: #64748b; border-top-color: #e2e8f0; }
+
+        @media (max-width: 768px) {
+            body { padding-top: 60px; }
+            .nav-links { display: none; flex-direction: column; width: 100%; gap: 8px; padding: 10px 0 4px; }
+            .nav-links.open { display: flex; }
+            .hamburger { display: flex; }
+            .stats-grid { grid-template-columns: repeat(2,1fr); }
+            .page-header { flex-direction: column; }
+            .dropdown { width: 100%; }
+            .dropbtn { width: 100%; }
+            .dropdown-content { position: static; width: 100%; }
+            thead th, tbody td { padding: 9px 10px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ══════════ NAVBAR ══════════ -->
+<div class="navbar">
+    <div class="nav-brand">🌾 Smart Silo Monitor</div>
+    <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Menu">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="nav-links" id="navLinks">
+        <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+        <a href="{{ url_for('farmers.farmers') }}">Farmers</a>
+        <a href="{{ url_for('inspections.inspection_form') }}" class="active-link">🔍 Inspections</a>
+        <a href="{{ url_for('transactions.transactions') }}">Transactions</a>
+        <a href="{{ url_for('reports.reports') }}">Reports</a>
+        <a href="{{ url_for('reports.analytics') }}">Analytics</a>
+        <a href="{{ url_for('reports.inventory_flow') }}">Inventory Flow</a>
+        <a href="{{ url_for('reports.quality_alerts') }}">Quality &amp; Alerts</a>
+        {% if role == 'admin' %}
+            <a href="{{ url_for('users.users') }}">Users</a>
+            <a href="{{ url_for('admin.admin_pending_users') }}">👥 Pending</a>
+        {% endif %}
+        <div class="dropdown">
+            <button class="dropbtn" onclick="toggleDropdown()">👤 {{ username }} ({{ role }}) ▼</button>
+            <div class="dropdown-content" id="myDropdown">
+                <a href="{{ url_for('auth.change_password') }}">🔐 Change Password</a>
+                <a href="{{ url_for('alerts.alert_settings') }}">📧 Alert Settings</a>
+                <a href="{{ url_for('auth.logout') }}" class="logout">🚪 Logout</a>
+            </div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">🌓 Dark/Light</button>
+    </div>
+</div>
+
+<!-- ══════════ MAIN CONTENT ══════════ -->
+<div class="container">
+
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">📋 Inspection History</h1>
+            <p class="page-subtitle">
+                Silo {{ silo.silo_number }}
+                {% if silo.location %} — {{ silo.location }}{% endif %}
+                {% if silo.grain_type %} &nbsp;·&nbsp; {{ silo.grain_type }}{% endif %}
+            </p>
+        </div>
+        <a href="{{ url_for('inspections.inspection_form', silo_id=silo.id) }}"
+           class="btn-new-inspection">+ New Inspection</a>
+    </div>
+
+    <!-- Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <!-- Stats -->
+    {% set pest_count   = records | selectattr('pest_present',  'equalto', 1) | list | length %}
+    {% set aerate_count = records | selectattr('aeration_done', 'equalto', 1) | list | length %}
+
+    <div class="stats-grid">
+        <div class="stat-card total">
+            <div class="stat-icon">📋</div>
+            <div class="stat-value">{{ records | length }}</div>
+            <div class="stat-label">Total Inspections</div>
+        </div>
+        <div class="stat-card latest">
+            <div class="stat-icon">📅</div>
+            <div class="stat-value" style="font-size:16px; padding-top:5px;">
+                {{ records[0].inspection_date if records else '—' }}
+            </div>
+            <div class="stat-label">Latest Inspection</div>
+        </div>
+        <div class="stat-card pest">
+            <div class="stat-icon">🐛</div>
+            <div class="stat-value">{{ pest_count }}</div>
+            <div class="stat-label">Pest Detections</div>
+        </div>
+        <div class="stat-card aerate">
+            <div class="stat-icon">💨</div>
+            <div class="stat-value">{{ aerate_count }}</div>
+            <div class="stat-label">Aeration Done</div>
+        </div>
+    </div>
+
+    <!-- Silo Switcher -->
+    <div class="silo-switcher">
+        <label for="siloSwitch">🔀 Switch silo:</label>
+        <select id="siloSwitch" onchange="switchSilo()">
+            {% for s in silos %}
+            <option value="{{ s.id }}" {% if s.id == silo.id %}selected{% endif %}>
+                {{ s.silo_number }}{% if s.location %} – {{ s.location }}{% endif %}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        {% if records %}
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Date</th>
+                    <th>Temp (°C)</th>
+                    <th>Moisture (%)</th>
+                    <th>Stock (kg)</th>
+                    <th>Pests</th>
+                    <th>Aeration</th>
+                    <th>Odour</th>
+                    <th>Inspector</th>
+                    <th>Notes</th>
+                    {% if role == 'admin' %}<th>Del</th>{% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in records %}
+                <tr>
+                    <td style="color:#64748b; font-size:11px;">{{ loop.index }}</td>
+
+                    <td><strong>{{ r.inspection_date }}</strong></td>
+
+                    <td>
+                        {% if r.temperature is not none %}
+                            {{ '%.1f' | format(r.temperature) }}
+                        {% else %}<span style="color:#9ca3af">—</span>{% endif %}
+                    </td>
+
+                    <td>
+                        {% if r.moisture is not none %}
+                            <span class="
+                                {% if r.moisture > 14 %}moist-crit
+                                {% elif r.moisture > 12.5 %}moist-warn
+                                {% else %}moist-safe{% endif %}">
+                                {{ '%.1f' | format(r.moisture) }}%
+                            </span>
+                        {% else %}<span style="color:#9ca3af">—</span>{% endif %}
+                    </td>
+
+                    <td>
+                        {% if r.stock_kg is not none %}
+                            {{ '{:,.0f}'.format(r.stock_kg) }}
+                        {% else %}<span style="color:#9ca3af">—</span>{% endif %}
+                    </td>
+
+                    <td>
+                        {% if r.pest_present %}
+                            <span class="badge badge-red">⚠️ Yes</span>
+                        {% else %}
+                            <span class="badge badge-green">✓ None</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if r.aeration_done %}
+                            <span class="badge badge-purple">✓ Done</span>
+                        {% else %}
+                            <span class="badge badge-gray">— No</span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if r.odour_normal %}
+                            <span class="badge badge-green">✓ Normal</span>
+                        {% else %}
+                            <span class="badge badge-yellow">⚠️ Abnormal</span>
+                        {% endif %}
+                    </td>
+
+                    <td style="color:#475569;">{{ r.inspector_name or '—' }}</td>
+
+                    <td style="max-width:180px; color:#475569;">
+                        {% if r.notes %}
+                            <span title="{{ r.notes }}">
+                                {{ r.notes[:50] }}{% if r.notes|length > 50 %}…{% endif %}
+                            </span>
+                        {% else %}<span style="color:#9ca3af">—</span>{% endif %}
+                    </td>
+
+                    {% if role == 'admin' %}
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('inspections.delete_inspection', inspection_id=r.id) }}"
+                              onsubmit="return confirm('Delete this inspection record?')">
+                            <button type="submit" class="btn-delete-row" title="Delete record">🗑</button>
+                        </form>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p>No inspection records yet for Silo {{ silo.silo_number }}.</p>
+            <a href="{{ url_for('inspections.inspection_form', silo_id=silo.id) }}"
+               class="btn-new-inspection" style="display:inline-flex;">
+                + Record First Inspection
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ══════════ FOOTER ══════════ -->
+<div class="footer">
+    <p>&copy; 2026 Smart Silo Management System | Developed by Kelvin Kipkorir |
+    <a href="/dashboard" style="color:#10b981">Dashboard</a> |
+    <a href="/inspection" style="color:#10b981">New Inspection</a>
+    </p>
+</div>
+
+<script>
+    function toggleTheme() {
+        document.body.classList.toggle('light');
+        localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+    }
+    if (localStorage.getItem('theme') === 'light') document.body.classList.add('light');
+
+    function toggleNav() { document.getElementById('navLinks').classList.toggle('open'); }
+
+    function toggleDropdown() { document.getElementById('myDropdown').classList.toggle('show'); }
+    window.addEventListener('click', function(e) {
+        if (!e.target.matches('.dropbtn'))
+            document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
+    });
+
+    function switchSilo() {
+        const id = document.getElementById('siloSwitch').value;
+        if (id) window.location.href = '/inspection-history/' + id;
+    }
+</script>
+</body>
+</html>
