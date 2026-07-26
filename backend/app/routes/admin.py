@@ -70,7 +70,7 @@ def approve_user(user_id):
             email_sent = _dispatch_email(
                 'Your Smart Silo Account is Approved',
                 [recipient_email],
-                    f'''
+                f'''
                     <html><body style="font-family:Arial,sans-serif;background:#f9fafb;padding:20px;margin:0">
                       <div style="max-width:560px;margin:auto;background:#fff;border-radius:12px;
                                   border-top:5px solid #10b981;padding:32px">
@@ -107,13 +107,13 @@ def approve_user(user_id):
                         <small style="color:#9ca3af">Smart Silo Management System</small>
                       </div>
                     </body></html>'''
-                )
-                if email_sent:
-                    print(f'✅ Approval email queued for {recipient_email}')
-                else:
-                    print(f'❌ Approval email failed for {recipient_email}')
-            except Exception as exc:
-                print(f'❌ Approval email exception for {recipient_email}: {exc}')
+            )
+            if email_sent:
+                print(f'✅ Approval email queued for {recipient_email}')
+            else:
+                print(f'❌ Approval email failed for {recipient_email}')
+        except Exception as exc:
+            print(f'❌ Approval email exception for {recipient_email}: {exc}')
     else:
         print(f'⚠️ Approval email skipped — mail_configured={_mail_configured()} recipient={recipient_email!r}')
 
