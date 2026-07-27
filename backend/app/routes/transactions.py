@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify
 
-from ..database import get_db
-from ..decorators import login_required, admin_required, can_see_transactions
+from app.database import get_db
+from app.decorators import login_required, admin_required, can_see_transactions
 
 transactions_bp = Blueprint('transactions', __name__)
 
