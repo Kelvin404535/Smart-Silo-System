@@ -82,6 +82,16 @@ def register():
             if conn.execute('SELECT id FROM users WHERE username = ?',
                             (preferred_username,)).fetchone():
                 errors.append('Username already taken.')
+            if conn.execute(
+                "SELECT id FROM pending_users WHERE email = ? AND status = 'pending'",
+                (email,),
+            ).fetchone():
+                errors.append('A registration request with this email is already pending approval.')
+            if conn.execute(
+                "SELECT id FROM pending_users WHERE preferred_username = ? AND status = 'pending'",
+                (preferred_username,),
+            ).fetchone():
+                errors.append('Username already taken by a pending registration.')
             conn.close()
 
         if errors:
