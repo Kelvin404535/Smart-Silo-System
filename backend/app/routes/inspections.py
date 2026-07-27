@@ -10,10 +10,10 @@ Routes:
 from datetime import date
 
 from flask import (Blueprint, render_template, request,
-                   redirect, url_for, session, jsonify, flash)
+                   redirect, url_for, session, flash)
 
 from app.database import get_db
-from app.decorators import login_required, admin_required
+from app.decorators import login_required, admin_required, can_inspect
 
 inspections_bp = Blueprint('inspections', __name__)
 
@@ -58,18 +58,23 @@ def _validate_inspection(form) -> list:
     return errors
 
 
+def _get_silos(conn):
+    return conn.execute(
+        "SELECT id, silo_number, location FROM silos "
+        "WHERE status = 'active' ORDER BY silo_number"
+    ).fetchall()
+
+
 # ── routes ─────────────────────────────────────────────────────────────────────
 
 @inspections_bp.route('/inspection')
 @login_required
+@can_inspect
 def inspection_form():
     conn  = get_db()
-    silos = conn.execute(
-        "SELECT id, silo_number, location FROM silos WHERE status = 'active' ORDER BY silo_number"
-    ).fetchall()
+    silos = _get_silos(conn)
     conn.close()
 
-    # Pre-select silo_id if passed as query param (e.g. from dashboard quick-link)
     preselected = request.args.get('silo_id', '')
     today       = date.today().isoformat()
 
@@ -85,16 +90,14 @@ def inspection_form():
 
 @inspections_bp.route('/save-inspection', methods=['POST'])
 @login_required
+@can_inspect
 def save_inspection():
     form   = request.form
     errors = _validate_inspection(form)
 
     if errors:
         conn  = get_db()
-        silos = conn.execute(
-            "SELECT id, silo_number, location FROM silos "
-            "WHERE status = 'active' ORDER BY silo_number"
-        ).fetchall()
+        silos = _get_silos(conn)
         conn.close()
         return render_template(
             'inspections.html',
@@ -133,10 +136,7 @@ def save_inspection():
     except Exception as exc:
         conn.close()
         conn  = get_db()
-        silos = conn.execute(
-            "SELECT id, silo_number, location FROM silos "
-            "WHERE status = 'active' ORDER BY silo_number"
-        ).fetchall()
+        silos = _get_silos(conn)
         conn.close()
         return render_template(
             'inspections.html',
@@ -156,6 +156,7 @@ def save_inspection():
 
 @inspections_bp.route('/inspection-history/<int:silo_id>')
 @login_required
+@can_inspect
 def inspection_history(silo_id):
     conn = get_db()
 
@@ -179,11 +180,7 @@ def inspection_history(silo_id):
         (silo_id,),
     ).fetchall()
 
-    # All active silos for the sidebar switcher
-    silos = conn.execute(
-        "SELECT id, silo_number, location FROM silos WHERE status = 'active' ORDER BY silo_number"
-    ).fetchall()
-
+    silos = _get_silos(conn)
     conn.close()
 
     return render_template(

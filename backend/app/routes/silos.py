@@ -3,14 +3,15 @@ from datetime import datetime
 from flask import (Blueprint, render_template, request,
                    redirect, url_for, session, jsonify)
 
-from app.database import get_db
-from app.decorators import login_required, admin_required
+from .database import get_db
+from .decorators import login_required, admin_required, can_add_grain, can_remove_stock
 
 silos_bp = Blueprint('silos', __name__)
 
 
 @silos_bp.route('/silo/<int:silo_id>', methods=['GET', 'POST'])
 @login_required
+@can_add_grain
 def edit_silo(silo_id):
     if request.method == 'POST':
         grain_type  = request.form['grain_type']
@@ -56,7 +57,6 @@ def edit_silo(silo_id):
 @login_required
 @admin_required
 def add_silo():
-    # Accept both JSON and form data
     data = request.get_json(silent=True) or {}
     if not data:
         data = request.form.to_dict()
@@ -64,9 +64,6 @@ def add_silo():
     silo_number = (data.get('silo_number') or '').strip()
     location    = (data.get('location') or '').strip()
     capacity    = data.get('capacity_kg')
-
-    print(f'📥 add_silo called — silo_number={silo_number!r} location={location!r} capacity={capacity!r}')
-    print(f'📥 Content-Type: {request.content_type} | data: {data}')
 
     if not silo_number:
         return jsonify({'success': False, 'error': 'Silo number is required.'}), 400
@@ -89,7 +86,6 @@ def add_silo():
     except Exception as exc:
         import traceback
         traceback.print_exc()
-        print(f'❌ Add silo DB error: {exc}')
         try:
             conn.close()
         except Exception:
@@ -117,6 +113,7 @@ def remove_silo(silo_id):
 
 @silos_bp.route('/remove_stock', methods=['POST'])
 @login_required
+@can_remove_stock
 def remove_stock():
     data = request.get_json()
     conn = get_db()

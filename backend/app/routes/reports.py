@@ -1,11 +1,11 @@
 import io
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from flask import Blueprint, render_template, send_file
 
 from app.database import get_db
-from app.decorators import login_required
+from app.decorators import login_required, reporter_required
 from app.utils import calculate_risk
 
 reports_bp = Blueprint('reports', __name__)
@@ -13,15 +13,16 @@ reports_bp = Blueprint('reports', __name__)
 
 @reports_bp.route('/reports')
 @login_required
+@reporter_required
 def reports():
     return render_template('reports.html')
 
 
 @reports_bp.route('/analytics')
 @login_required
+@reporter_required
 def analytics():
     conn   = get_db()
-    from datetime import timedelta
     cutoff = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     trends = conn.execute(
         "SELECT date(entry_date) AS date, AVG(moisture) AS avg_moisture "
@@ -62,6 +63,7 @@ def analytics():
 
 @reports_bp.route('/inventory-flow')
 @login_required
+@reporter_required
 def inventory_flow():
     conn = get_db()
     totals = conn.execute(
@@ -71,7 +73,6 @@ def inventory_flow():
         "THEN quantity_kg ELSE 0 END), 0) AS outgoing "
         "FROM transactions"
     ).fetchone()
-    # Cast to float to handle Turso returning strings
     totals = {
         'incoming': float(totals['incoming'] or 0),
         'outgoing': float(totals['outgoing'] or 0),
@@ -105,6 +106,7 @@ def inventory_flow():
 
 @reports_bp.route('/quality-alerts')
 @login_required
+@reporter_required
 def quality_alerts():
     conn = get_db()
     silos = conn.execute(
@@ -141,6 +143,7 @@ def quality_alerts():
 
 @reports_bp.route('/export_pdf')
 @login_required
+@reporter_required
 def export_pdf():
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
@@ -184,6 +187,7 @@ def export_pdf():
 
 @reports_bp.route('/export_csv')
 @login_required
+@reporter_required
 def export_csv():
     conn  = get_db()
     silos = conn.execute(

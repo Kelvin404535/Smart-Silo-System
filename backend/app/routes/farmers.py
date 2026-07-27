@@ -1,13 +1,14 @@
 from flask import Blueprint, render_template, request, session, jsonify
 
-from app.database import get_db
-from app.decorators import login_required, admin_required
+from .database import get_db
+from .decorators import login_required, can_see_farmers, can_edit_farmers
 
 farmers_bp = Blueprint('farmers', __name__)
 
 
 @farmers_bp.route('/farmers')
 @login_required
+@can_see_farmers
 def farmers():
     conn = get_db()
     farmer_list = conn.execute(
@@ -23,6 +24,7 @@ def farmers():
 
 @farmers_bp.route('/add_farmer', methods=['POST'])
 @login_required
+@can_edit_farmers
 def add_farmer():
     data = request.get_json()
     conn = get_db()
@@ -39,7 +41,7 @@ def add_farmer():
 
 @farmers_bp.route('/delete_farmer/<int:farmer_id>', methods=['DELETE'])
 @login_required
-@admin_required
+@can_edit_farmers
 def delete_farmer(farmer_id):
     conn = get_db()
     farmer = conn.execute(
@@ -68,7 +70,7 @@ def delete_farmer(farmer_id):
 
 @farmers_bp.route('/delete_farmers', methods=['DELETE'])
 @login_required
-@admin_required
+@can_edit_farmers
 def delete_farmers():
     data       = request.get_json()
     farmer_ids = data.get('farmer_ids', [])

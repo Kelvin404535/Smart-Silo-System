@@ -1,15 +1,16 @@
 from flask import (Blueprint, redirect, url_for, request,
                    session, render_template, current_app)
 
-from app.database import get_db
-from app.decorators import login_required
-from app.utils import send_test_email
+from ..database import get_db
+from ..decorators import login_required, manager_required
+from ..utils import send_test_email
 
 alerts_bp = Blueprint('alerts', __name__)
 
 
 @alerts_bp.route('/alert-settings', methods=['GET', 'POST'])
 @login_required
+@manager_required
 def alert_settings():
     message = request.args.get('message')
     error   = request.args.get('error')
@@ -37,6 +38,7 @@ def alert_settings():
 
 @alerts_bp.route('/send-test-alert')
 @login_required
+@manager_required
 def send_test_alert():
     conn = get_db()
     user = conn.execute(

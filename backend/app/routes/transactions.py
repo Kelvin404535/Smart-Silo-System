@@ -1,13 +1,14 @@
 from flask import Blueprint, render_template, request, jsonify
 
-from app.database import get_db
-from app.decorators import login_required, admin_required
+from .database import get_db
+from .decorators import login_required, admin_required, can_see_transactions
 
 transactions_bp = Blueprint('transactions', __name__)
 
 
 @transactions_bp.route('/transactions')
 @login_required
+@can_see_transactions
 def transactions():
     conn = get_db()
     tx_list = conn.execute(

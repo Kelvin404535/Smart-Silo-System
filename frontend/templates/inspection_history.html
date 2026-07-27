@@ -254,22 +254,28 @@
     </button>
     <div class="nav-links" id="navLinks">
         <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+        {% if role in ('admin','silo_manager','silo_attendant','staff') %}
         <a href="{{ url_for('farmers.farmers') }}">Farmers</a>
+        {% endif %}
         <a href="{{ url_for('inspections.inspection_form') }}" class="active-link">🔍 Inspections</a>
+        {% if role in ('admin','silo_manager','board_director') %}
         <a href="{{ url_for('transactions.transactions') }}">Transactions</a>
         <a href="{{ url_for('reports.reports') }}">Reports</a>
         <a href="{{ url_for('reports.analytics') }}">Analytics</a>
         <a href="{{ url_for('reports.inventory_flow') }}">Inventory Flow</a>
         <a href="{{ url_for('reports.quality_alerts') }}">Quality &amp; Alerts</a>
+        {% endif %}
         {% if role == 'admin' %}
             <a href="{{ url_for('users.users') }}">Users</a>
             <a href="{{ url_for('admin.admin_pending_users') }}">👥 Pending</a>
         {% endif %}
         <div class="dropdown">
-            <button class="dropbtn" onclick="toggleDropdown()">👤 {{ username }} ({{ role }}) ▼</button>
+            <button class="dropbtn" onclick="toggleDropdown()">👤 {{ username }} ({{ role.replace('_',' ').title() }}) ▼</button>
             <div class="dropdown-content" id="myDropdown">
                 <a href="{{ url_for('auth.change_password') }}">🔐 Change Password</a>
+                {% if role in ('admin','silo_manager') %}
                 <a href="{{ url_for('alerts.alert_settings') }}">📧 Alert Settings</a>
+                {% endif %}
                 <a href="{{ url_for('auth.logout') }}" class="logout">🚪 Logout</a>
             </div>
         </div>

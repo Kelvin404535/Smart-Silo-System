@@ -498,37 +498,87 @@
             padding: 22px 24px;
             margin-bottom: 28px;
         }
-        body.light .inspection-widget { background: white; border-color: #e2e8f0; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
-        .iw-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+        body.light .inspection-widget {
+            background: white;
+            border-color: #e2e8f0;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+        .iw-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
         .iw-title { font-size: 17px; font-weight: 700; color: white; }
         body.light .iw-title { color: #1e293b; }
         .iw-subtitle { font-size: 12px; color: rgba(255,255,255,0.5); margin-top: 2px; }
         body.light .iw-subtitle { color: #94a3b8; }
-        .btn-insp { background: linear-gradient(135deg,#10b981,#059669); color: white; border: none; border-radius: 10px; padding: 8px 18px; font-size: 13px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.3s; white-space: nowrap; }
+        .btn-insp {
+            background: linear-gradient(135deg,#10b981,#059669);
+            color: white; border: none; border-radius: 10px;
+            padding: 8px 18px; font-size: 13px; font-weight: 700;
+            cursor: pointer; text-decoration: none;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.3s; white-space: nowrap;
+        }
         .btn-insp:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(16,185,129,0.4); }
-        .iw-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 18px; }
-        .iw-stat { background: rgba(255,255,255,0.09); border-radius: 13px; padding: 13px 10px; text-align: center; border: 1px solid rgba(255,255,255,0.13); transition: all 0.3s; }
+        .iw-stats {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .iw-stat {
+            background: rgba(255,255,255,0.09);
+            border-radius: 13px; padding: 13px 10px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.13);
+            transition: all 0.3s;
+        }
         .iw-stat:hover { transform: translateY(-2px); background: rgba(255,255,255,0.15); }
         body.light .iw-stat { background: #f8fafc; border-color: #e2e8f0; }
-        .iw-stat-icon { font-size: 20px; margin-bottom: 4px; }
-        .iw-stat-val { font-size: 24px; font-weight: 800; color: white; line-height: 1.1; }
+        .iw-stat-icon  { font-size: 20px; margin-bottom: 4px; }
+        .iw-stat-val   { font-size: 24px; font-weight: 800; color: white; line-height: 1.1; }
         body.light .iw-stat-val { color: #1e293b; }
-        .iw-stat-lbl { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; }
+        .iw-stat-lbl   { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 3px; }
         body.light .iw-stat-lbl { color: #64748b; }
-        .iw-stat.s-today { border-top: 3px solid #10b981; }
-        .iw-stat.s-overdue { border-top: 3px solid #ef4444; }
-        .iw-stat.s-ok { border-top: 3px solid #3b82f6; }
-        .iw-overdue-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: rgba(255,255,255,0.4); margin-bottom: 9px; }
+        .iw-stat.s-today  { border-top: 3px solid #10b981; }
+        .iw-stat.s-overdue{ border-top: 3px solid #ef4444; }
+        .iw-stat.s-ok     { border-top: 3px solid #3b82f6; }
+        .iw-overdue-label {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.07em; color: rgba(255,255,255,0.4); margin-bottom: 9px;
+        }
         body.light .iw-overdue-label { color: #94a3b8; }
         .iw-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-        .iw-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.35); border-radius: 30px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: #fca5a5; text-decoration: none; transition: all 0.2s; }
+        .iw-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(239,68,68,0.14);
+            border: 1px solid rgba(239,68,68,0.35);
+            border-radius: 30px; padding: 4px 12px;
+            font-size: 12px; font-weight: 600; color: #fca5a5;
+            text-decoration: none; transition: all 0.2s;
+        }
         .iw-chip:hover { background: rgba(239,68,68,0.28); color: white; transform: scale(1.04); }
         body.light .iw-chip { color: #dc2626; background: #fef2f2; border-color: #fca5a5; }
-        .iw-chip-days { background: rgba(239,68,68,0.38); border-radius: 20px; padding: 1px 6px; font-size: 10px; }
+        .iw-chip-days {
+            background: rgba(239,68,68,0.38); border-radius: 20px;
+            padding: 1px 6px; font-size: 10px;
+        }
         body.light .iw-chip-days { background: #fca5a5; color: #7f1d1d; }
-        .iw-all-good { display: inline-flex; align-items: center; gap: 7px; background: rgba(16,185,129,0.13); border: 1px solid rgba(16,185,129,0.3); border-radius: 10px; padding: 10px 15px; font-size: 13px; font-weight: 600; color: #6ee7b7; }
+        .iw-all-good {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(16,185,129,0.13);
+            border: 1px solid rgba(16,185,129,0.3);
+            border-radius: 10px; padding: 10px 15px;
+            font-size: 13px; font-weight: 600; color: #6ee7b7;
+        }
         body.light .iw-all-good { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
-        @media (max-width: 480px) { .iw-stats { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 480px) {
+            .iw-stats { grid-template-columns: 1fr 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -539,28 +589,38 @@
         </button>
         <div class="nav-links" id="navLinks">
             <a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a>
+            {% if role in ('admin','silo_manager','silo_attendant','staff') %}
             <a href="{{ url_for('farmers.farmers') }}">Farmers</a>
+            {% endif %}
+            {% if role in ('admin','silo_manager','silo_attendant','staff') %}
             <a href="{{ url_for('inspections.inspection_form') }}">🔍 Inspections</a>
+            {% endif %}
+            {% if role in ('admin','silo_manager','board_director') %}
             <a href="{{ url_for('transactions.transactions') }}">Transactions</a>
+            {% endif %}
+            {% if role in ('admin','silo_manager','board_director') %}
             <a href="{{ url_for('reports.reports') }}">Reports</a>
             <a href="{{ url_for('reports.analytics') }}">Analytics</a>
             <a href="{{ url_for('reports.inventory_flow') }}">Inventory Flow</a>
-            <a href="{{ url_for('reports.quality_alerts') }}">Quality & Alerts</a>
+            <a href="{{ url_for('reports.quality_alerts') }}">Quality &amp; Alerts</a>
+            {% endif %}
             {% if role == 'admin' %}
                 <a href="{{ url_for('users.users') }}">Users</a>
                 <a href="{{ url_for('admin.admin_pending_users') }}">👥 Pending Approvals</a>
             {% endif %}
-            
-            <!-- Admin Dropdown with Logout -->
+
+            <!-- User Dropdown -->
             <div class="dropdown">
-                <button class="dropbtn" onclick="toggleDropdown()">👤 {{ username }} ({{ role }}) ▼</button>
+                <button class="dropbtn" onclick="toggleDropdown()">👤 {{ username }} ({{ role.replace('_',' ').title() }}) ▼</button>
                 <div class="dropdown-content" id="myDropdown">
                     <a href="{{ url_for('auth.change_password') }}">🔐 Change Password</a>
+                    {% if role in ('admin','silo_manager') %}
                     <a href="{{ url_for('alerts.alert_settings') }}">📧 Alert Settings</a>
+                    {% endif %}
                     <a href="{{ url_for('auth.logout') }}" class="logout">🚪 Logout</a>
                 </div>
             </div>
-            
+
             <button class="theme-toggle" onclick="toggleTheme()">🌓 Dark/Light</button>
         </div>
     </div>
@@ -610,6 +670,7 @@
                 </div>
                 <a href="{{ url_for('inspections.inspection_form') }}" class="btn-insp">+ Record Inspection</a>
             </div>
+
             <div class="iw-stats">
                 <div class="iw-stat s-today">
                     <div class="iw-stat-icon">📋</div>
@@ -627,6 +688,7 @@
                     <div class="iw-stat-lbl">Inspected This Week</div>
                 </div>
             </div>
+
             <div class="iw-overdue-label">⏰ Silos needing inspection</div>
             <div class="iw-chips">
                 {% if inspection_stats.overdue_silos %}
@@ -643,6 +705,7 @@
             </div>
         </div>
         {% endif %}
+        <!-- ────────────────────── -->
 
         <div class="silo-grid">
             {% for silo in silos %}
@@ -658,8 +721,12 @@
                 </div>
                 <div class="stock-bar"><div class="stock-fill" style="width: {{ (silo.stock/silo.capacity*100)|round }}%"></div></div>
                 <div class="stock-text">📦 {{ (silo.stock/1000)|round(1) }} / {{ (silo.capacity/1000)|round(1) }} tons</div>
+                {% if role in ('admin','silo_manager','silo_attendant','staff') %}
                 <a href="{{ url_for('silos.edit_silo', silo_id=silo.id) }}" class="btn-edit">✏️ Add Grain</a>
+                {% endif %}
+                {% if role in ('admin','silo_manager') %}
                 <button onclick="removeStock({{ silo.id }})" class="btn-remove">📤 Remove Stock</button>
+                {% endif %}
                 {% if role == 'admin' %}
                 <button onclick="removeSilo({{ silo.id }})" class="btn-delete">🗑️ Delete Silo</button>
                 {% endif %}

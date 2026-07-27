@@ -1,8 +1,8 @@
 import os
-from flask import Flask, jsonify, session
+from flask import Flask, jsonify, session, render_template
 from flask_mail import Mail
 
-from app.config import Config
+from .config import Config
 
 mail = Mail()
 
@@ -29,17 +29,17 @@ def create_app():
     mail.init_app(app)
 
     # Register all blueprints
-    from app.routes.auth         import auth_bp
-    from app.routes.dashboard    import dashboard_bp
-    from app.routes.silos        import silos_bp
-    from app.routes.farmers      import farmers_bp
-    from app.routes.transactions import transactions_bp
-    from app.routes.users        import users_bp
-    from app.routes.reports      import reports_bp
-    from app.routes.alerts       import alerts_bp
-    from app.routes.admin        import admin_bp
-    from app.routes.recycle_bin  import recycle_bin_bp
-    from app.routes.inspections  import inspections_bp
+    from .routes.auth         import auth_bp
+    from .routes.dashboard    import dashboard_bp
+    from .routes.silos        import silos_bp
+    from .routes.farmers      import farmers_bp
+    from .routes.transactions import transactions_bp
+    from .routes.users        import users_bp
+    from .routes.reports      import reports_bp
+    from .routes.alerts       import alerts_bp
+    from .routes.admin        import admin_bp
+    from .routes.recycle_bin  import recycle_bin_bp
+    from .routes.inspections  import inspections_bp
 
     for bp in (auth_bp, dashboard_bp, silos_bp, farmers_bp,
                transactions_bp, users_bp, reports_bp, alerts_bp,
@@ -63,7 +63,7 @@ def create_app():
     @app.context_processor
     def inject_pending_count():
         if 'user_id' in session and session.get('role') == 'admin':
-            from app.database import get_db
+            from .database import get_db
             conn  = get_db()
             count = conn.execute(
                 "SELECT COUNT(*) AS c FROM pending_users WHERE status = 'pending'"
@@ -72,7 +72,11 @@ def create_app():
             return {'pending_count': count['c'] if count else 0}
         return {'pending_count': 0}
 
-    from app.database import init_db
+    @app.errorhandler(403)
+    def forbidden(e):
+        return render_template('403.html', role=session.get('role', '')), 403
+
+    from .database import init_db
     with app.app_context():
         init_db()
 
