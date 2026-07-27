@@ -10,6 +10,21 @@ from app.utils import (is_strong_password, hash_password, verify_password,
                        reset_failed_attempts, get_base_url, _dispatch_email)
 from app.decorators import login_required, admin_required
 
+
+def _normalize_role(raw_role):
+    role = (raw_role or '').strip().lower()
+    mapping = {
+        'admin': 'admin',
+        'manager': 'silo_manager',
+        'silo_manager': 'silo_manager',
+        'attendant': 'silo_attendant',
+        'silo_attendant': 'silo_attendant',
+        'director': 'board_director',
+        'board_director': 'board_director',
+        'staff': 'staff',
+    }
+    return mapping.get(role, 'staff')
+
 auth_bp = Blueprint('auth', __name__)
 
 
@@ -65,7 +80,7 @@ def register():
         email              = request.form.get('email', '').strip()
         phone              = request.form.get('phone', '').strip()
         preferred_username = request.form.get('preferred_username', '').strip()
-        role               = request.form.get('role', 'staff')
+        role               = _normalize_role(request.form.get('role', 'staff'))
 
         errors = []
         if not full_name:

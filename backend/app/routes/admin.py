@@ -11,6 +11,21 @@ from app.utils import hash_password, get_base_url, _dispatch_email
 admin_bp = Blueprint('admin', __name__)
 
 
+def _normalize_role(raw_role):
+    role = (raw_role or '').strip().lower()
+    mapping = {
+        'admin': 'admin',
+        'manager': 'silo_manager',
+        'silo_manager': 'silo_manager',
+        'attendant': 'silo_attendant',
+        'silo_attendant': 'silo_attendant',
+        'director': 'board_director',
+        'board_director': 'board_director',
+        'staff': 'staff',
+    }
+    return mapping.get(role, 'staff')
+
+
 @admin_bp.route('/admin-pending-users')
 @login_required
 @admin_required
@@ -40,7 +55,7 @@ def approve_user(user_id):
         return redirect(url_for('admin.admin_pending_users'))
 
     username = pending['preferred_username']
-    role     = pending['requested_role'] or 'staff'
+    role     = _normalize_role(pending['requested_role'])
 
     chars    = string.ascii_letters + string.digits + '!@#$%^&*'
     temp_pwd = ''.join(random.choice(chars) for _ in range(12))
