@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, session, jsonify
 
-from .database import get_db
-from .decorators import login_required, can_see_farmers, can_edit_farmers
+from ..database import get_db
+from ..decorators import login_required, can_see_farmers, can_edit_farmers
 
 farmers_bp = Blueprint('farmers', __name__)
 

@@ -3,8 +3,8 @@ from datetime import datetime
 from flask import (Blueprint, render_template, request,
                    redirect, url_for, session, jsonify)
 
-from .database import get_db
-from .decorators import login_required, admin_required, can_add_grain, can_remove_stock
+from ..database import get_db
+from ..decorators import login_required, admin_required, can_add_grain, can_remove_stock
 
 silos_bp = Blueprint('silos', __name__)
 
