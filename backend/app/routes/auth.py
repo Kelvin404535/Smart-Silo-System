@@ -99,14 +99,26 @@ def register():
                                    errors=errors, form_data=request.form)
 
         conn = get_db()
-        conn.execute(
-            "INSERT INTO pending_users "
-            "(full_name, email, phone, preferred_username, requested_role, status) "
-            "VALUES (?, ?, ?, ?, ?, 'pending')",
-            (full_name, email, phone, preferred_username, role),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute(
+                "INSERT INTO pending_users "
+                "(full_name, email, phone, preferred_username, requested_role, status) "
+                "VALUES (?, ?, ?, ?, ?, 'pending')",
+                (full_name, email, phone, preferred_username, role),
+            )
+            conn.commit()
+        except Exception as exc:
+            msg = str(exc).lower()
+            if 'unique' in msg or 'duplicate' in msg:
+                conn.close()
+                return render_template(
+                    'register.html',
+                    errors=['A registration request with this email or username already exists.'],
+                    form_data=request.form,
+                )
+            raise
+        finally:
+            conn.close()
 
         if current_app.config.get('MAIL_USERNAME') and current_app.config.get('MAIL_PASSWORD'):
             _dispatch_email(
