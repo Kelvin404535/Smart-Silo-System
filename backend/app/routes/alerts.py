@@ -1,9 +1,9 @@
 from flask import (Blueprint, redirect, url_for, request,
                    session, render_template, current_app)
 
-from ..database import get_db
-from ..decorators import login_required, manager_required
-from ..utils import send_test_email
+from app.database import get_db
+from app.decorators import login_required, manager_required
+from app.utils import send_test_email
 
 alerts_bp = Blueprint('alerts', __name__)
 
